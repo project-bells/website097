@@ -1,0 +1,8 @@
+{
+  "name": "MU-Linux 0.97k Player Portal",
+  "description": "พอร์ทัลผู้เล่นอย่างเป็นทางการสำหรับเซิร์ฟเวอร์ MU-Linux 0.97k (EmanuelCatania/Mu-Linux) เชื่อมต่อฐานข้อมูล MySQL MuOnline97 สมัครสมาชิก จัดการตัวละคร ดูอันดับผู้เล่น ตารางกิจกรรม และดาวน์โหลดไคลเอนต์",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
