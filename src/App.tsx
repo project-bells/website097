@@ -132,9 +132,6 @@ export default function App() {
             <button type="button" onClick={() => navigate('account')} className="hover:text-[#EDE8E0]">
               {isThai ? 'จัดการบัญชี' : 'Account'}
             </button>
-            <button type="button" onClick={() => navigate('admin')} className="hover:text-[#EDE8E0]">
-              {isThai ? 'ผู้ดูแลระบบ' : 'Admin'}
-            </button>
           </div>
         </div>
       </footer>
