@@ -1,18 +1,47 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AccountView } from './components/AccountView';
+import { AdminView } from './components/AdminView';
 import { DownloadView } from './components/DownloadView';
 import { EventsGuideView } from './components/EventsGuideView';
 import { HomeView } from './components/HomeView';
 import { Navbar, type PortalPage } from './components/Navbar';
 import { RankingsView } from './components/RankingsView';
 import { api } from './lib/api';
+import { useLanguage } from './lib/i18n';
 import { SERVER_CONFIG_SPECS, type AccountProfile, type ServerOverview } from './shared/muData';
 
+function resolveInitialPage(): PortalPage {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+    return 'admin';
+  }
+  return 'home';
+}
+
 export default function App() {
-  const [page, setPage] = useState<PortalPage>('home');
+  const { isThai } = useLanguage();
+  const [page, setPageState] = useState<PortalPage>(resolveInitialPage);
   const [overview, setOverview] = useState<ServerOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState<boolean>(true);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
+
+  const navigate = useCallback((nextPage: PortalPage) => {
+    setPageState(nextPage);
+    if (typeof window !== 'undefined') {
+      const targetPath = nextPage === 'admin' ? '/admin' : '/';
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ page: nextPage }, '', targetPath);
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    const onPop = () => {
+      setPageState(resolveInitialPage());
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   const loadOverview = useCallback(async () => {
     try {
@@ -43,7 +72,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-[#0B0A09] text-[#EDE8E0]">
       <Navbar
         currentPage={page}
-        onNavigate={setPage}
+        onNavigate={navigate}
         accountId={profile?.memb___id ?? null}
       />
 
@@ -52,13 +81,13 @@ export default function App() {
           <HomeView
             overview={overview}
             loading={overviewLoading}
-            onNavigate={setPage}
+            onNavigate={navigate}
             accountId={profile?.memb___id ?? null}
           />
         )}
         {page === 'rankings' && <RankingsView />}
         {page === 'guide' && <EventsGuideView />}
-        {page === 'download' && <DownloadView overview={overview} />}
+        {page === 'download' && <DownloadView />}
         {page === 'account' && (
           <AccountView
             profile={profile}
@@ -66,6 +95,7 @@ export default function App() {
             onRefreshOverview={loadOverview}
           />
         )}
+        {page === 'admin' && <AdminView onContentChanged={loadOverview} />}
       </main>
 
       <footer className="border-t border-[#221E1A] bg-[#0E0D0B]">
@@ -75,15 +105,9 @@ export default function App() {
               {SERVER_CONFIG_SPECS.brandName}
             </div>
             <p>
-              พอร์ทัลผู้เล่นที่เชื่อมต่อกับสถาปัตยกรรมฐานข้อมูล MuOnline97 ของ{' '}
-              <a
-                href={SERVER_CONFIG_SPECS.repository}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#C89B3C] hover:underline"
-              >
-                EmanuelCatania/Mu-Linux
-              </a>
+              {isThai
+                ? 'พอร์ทัลผู้เล่น MU Online 0.97k · MuOrigins'
+                : 'MU Online 0.97k Player Portal · MuOrigins'}
             </p>
           </div>
 
@@ -96,17 +120,20 @@ export default function App() {
             >
               PlayOnline
             </a>
-            <button type="button" onClick={() => setPage('rankings')} className="hover:text-[#EDE8E0]">
-              อันดับผู้เล่น
+            <button type="button" onClick={() => navigate('rankings')} className="hover:text-[#EDE8E0]">
+              {isThai ? 'อันดับผู้เล่น' : 'Rankings'}
             </button>
-            <button type="button" onClick={() => setPage('guide')} className="hover:text-[#EDE8E0]">
-              ตารางกิจกรรม
+            <button type="button" onClick={() => navigate('guide')} className="hover:text-[#EDE8E0]">
+              {isThai ? 'ตารางกิจกรรม' : 'Events'}
             </button>
-            <button type="button" onClick={() => setPage('download')} className="hover:text-[#EDE8E0]">
-              ดาวน์โหลด
+            <button type="button" onClick={() => navigate('download')} className="hover:text-[#EDE8E0]">
+              {isThai ? 'ดาวน์โหลด' : 'Download'}
             </button>
-            <button type="button" onClick={() => setPage('account')} className="hover:text-[#EDE8E0]">
-              จัดการบัญชี
+            <button type="button" onClick={() => navigate('account')} className="hover:text-[#EDE8E0]">
+              {isThai ? 'จัดการบัญชี' : 'Account'}
+            </button>
+            <button type="button" onClick={() => navigate('admin')} className="hover:text-[#EDE8E0]">
+              {isThai ? 'ผู้ดูแลระบบ' : 'Admin'}
             </button>
           </div>
         </div>

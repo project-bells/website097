@@ -12,6 +12,7 @@ import {
 import { useEffect, useState, type FormEvent } from 'react';
 import { getClassPortrait } from '../data/assets';
 import { api } from '../lib/api';
+import { useLanguage } from '../lib/i18n';
 import {
   PLAYABLE_BASE_CLASSES,
   SERVER_CONFIG_SPECS,
@@ -35,6 +36,7 @@ export function AccountView({
   onProfileChange,
   onRefreshOverview,
 }: AccountViewProps) {
+  const { lang, isThai } = useLanguage();
   const [authTab, setAuthTab] = useState<AuthTab>('login');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
@@ -95,7 +97,12 @@ export function AccountView({
     try {
       const res = await api.login(loginId, loginPwd);
       onProfileChange(res.profile);
-      setFeedback({ type: 'ok', text: `ยินดีต้อนรับสู่ MuOrigins, ${res.profile.memb___id}` });
+      setFeedback({
+        type: 'ok',
+        text: isThai
+          ? `ยินดีต้อนรับสู่ MuOrigins, ${res.profile.memb___id}`
+          : `Welcome to MuOrigins, ${res.profile.memb___id}`,
+      });
     } catch (err) {
       setAuthError((err as Error).message);
     } finally {
@@ -107,7 +114,9 @@ export function AccountView({
     e.preventDefault();
     setAuthError(null);
     if (regPwd !== regPwdConfirm) {
-      setAuthError('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+      setAuthError(
+        isThai ? 'รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน' : 'Password and confirmation do not match.'
+      );
       return;
     }
     setAuthSubmitting(true);
@@ -123,7 +132,9 @@ export function AccountView({
       onRefreshOverview();
       setFeedback({
         type: 'ok',
-        text: `สมัครบัญชี ${res.profile.memb___id} สำเร็จ (บันทึกในตาราง MEMB_INFO พร้อมเข้ารหัส bcrypt)`,
+        text: isThai
+          ? `สมัครบัญชี ${res.profile.memb___id} สำเร็จ (บันทึกในตาราง MEMB_INFO พร้อมเข้ารหัส bcrypt)`
+          : `Account ${res.profile.memb___id} registered successfully (stored in MEMB_INFO with bcrypt).`,
       });
     } catch (err) {
       setAuthError((err as Error).message);
@@ -185,7 +196,10 @@ export function AccountView({
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     if (newPwd !== newPwdConfirm) {
-      setFeedback({ type: 'err', text: 'รหัสผ่านใหม่และการยืนยันไม่ตรงกัน' });
+      setFeedback({
+        type: 'err',
+        text: isThai ? 'รหัสผ่านใหม่และการยืนยันไม่ตรงกัน' : 'New password and confirmation do not match.',
+      });
       return;
     }
     setBusyAction('change-pwd');
@@ -214,27 +228,42 @@ export function AccountView({
           <div className="space-y-6 lg:col-span-5">
             <div className="space-y-2">
               <p className="text-xs font-medium text-[#C89B3C]">
-                ระบบบัญชีผู้เล่น MuOrigins · MuOnline97 (MEMB_INFO)
+                {isThai
+                  ? 'ระบบบัญชีผู้เล่น MuOrigins · MuOnline97 (MEMB_INFO)'
+                  : 'MuOrigins Account System · MuOnline97 (MEMB_INFO)'}
               </p>
               <h1 className="font-display text-3xl font-bold text-[#F7F2E8]">
-                เข้าสู่ระบบหรือสร้างบัญชีเกมใหม่
+                {isThai ? 'เข้าสู่ระบบหรือสร้างบัญชีเกมใหม่' : 'Sign In or Register a Game Account'}
               </h1>
               <p className="text-sm leading-relaxed text-[#A89F91]">
-                บัญชีที่สมัครผ่านพอร์ทัลนี้ใช้เข้าเล่น MuOrigins ได้ทันทีทั้งผ่าน PlayOnline และไคลเอนต์ 0.97k
-                โดยเข้ารหัสรหัสผ่านด้วย bcrypt ตรงกับ JoinServer (PasswordHash=1)
+                {isThai
+                  ? 'บัญชีที่สมัครผ่านพอร์ทัลนี้ใช้เข้าเล่น MuOrigins ได้ทันทีทั้งผ่าน PlayOnline และไคลเอนต์ 0.97k โดยเข้ารหัสรหัสผ่านด้วย bcrypt ตรงกับ JoinServer (PasswordHash=1)'
+                  : 'Accounts registered here work immediately across PlayOnline and the 0.97k client, secured with bcrypt hashing compatible with JoinServer (PasswordHash=1).'}
               </p>
             </div>
 
             <div className="rounded-lg border border-[#26221D] bg-[#141210] p-5 space-y-3 text-sm">
               <h2 className="font-display text-sm font-semibold text-[#F2ECE2]">
-                บริการผู้เล่นหลังเข้าสู่ระบบ
+                {isThai ? 'บริการผู้เล่นหลังเข้าสู่ระบบ' : 'Player Account Services'}
               </h2>
               <ul className="space-y-2 text-xs text-[#B5ADA0]">
-                <li>· วาร์ปกลับเมืองปลอดภัย (Lorencia / Noria) เมื่อตัวละครค้างแผนที่</li>
-                <li>· อัพแต้มสเตตัส STR / AGI / VIT / ENE ผ่านเว็บสูงสุด 32,767</li>
-                <li>· รีเซ็ตตัวละครที่เลเวล 400 พร้อมเก็บค่าพลังเดิมและล้างหัวแดง (PK Clear)</li>
-                <li>· ล้างกระเป๋าตัวละคร (760 bytes 0xFF) พร้อมระบบคูลดาวน์ป้องกันกดพลาด</li>
-                <li>· ตรวจสอบยอด Rena, Stone และ Lucky Number ของ Golden Archer</li>
+                {isThai ? (
+                  <>
+                    <li>· วาร์ปกลับเมืองปลอดภัย (Lorencia / Noria) เมื่อตัวละครค้างแผนที่</li>
+                    <li>· อัพแต้มสเตตัส STR / AGI / VIT / ENE ผ่านเว็บสูงสุด 32,767</li>
+                    <li>· รีเซ็ตตัวละครที่เลเวล 400 พร้อมเก็บค่าพลังเดิมและล้างหัวแดง (PK Clear)</li>
+                    <li>· ล้างกระเป๋าตัวละคร (760 bytes 0xFF) พร้อมระบบคูลดาวน์ป้องกันกดพลาด</li>
+                    <li>· ตรวจสอบยอด Rena, Stone และ Lucky Number ของ Golden Archer</li>
+                  </>
+                ) : (
+                  <>
+                    <li>· Warp stuck characters back to a safe zone (Lorencia / Noria)</li>
+                    <li>· Allocate STR / AGI / VIT / ENE stat points online up to 32,767</li>
+                    <li>· Perform Level 400 Web Resets (keep stats) and clear PK status</li>
+                    <li>· Clear character inventory (760 bytes 0xFF) with cooldown protection</li>
+                    <li>· Track Rena, Stone, and Golden Archer Lucky Number balances</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>
@@ -252,7 +281,7 @@ export function AccountView({
                   authTab === 'login' ? 'bg-[#C89B3C] text-[#120F0A]' : 'text-[#A89F91] hover:text-[#F2ECE2]'
                 }`}
               >
-                เข้าสู่ระบบ
+                {isThai ? 'เข้าสู่ระบบ' : 'Sign In'}
               </button>
               <button
                 type="button"
@@ -264,7 +293,7 @@ export function AccountView({
                   authTab === 'register' ? 'bg-[#C89B3C] text-[#120F0A]' : 'text-[#A89F91] hover:text-[#F2ECE2]'
                 }`}
               >
-                สมัครสมาชิกใหม่
+                {isThai ? 'สมัครสมาชิกใหม่' : 'Create Account'}
               </button>
             </div>
 
@@ -278,7 +307,7 @@ export function AccountView({
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
                   <label htmlFor="login-id" className="block text-xs font-medium text-[#C4BCB0] mb-1.5">
-                    ชื่อบัญชี (Account ID / memb___id)
+                    {isThai ? 'ชื่อบัญชี (Account ID / memb___id)' : 'Account ID (memb___id)'}
                   </label>
                   <input
                     id="login-id"
@@ -287,13 +316,13 @@ export function AccountView({
                     maxLength={10}
                     value={loginId}
                     onChange={(e) => setLoginId(e.target.value)}
-                    placeholder="กรอกชื่อบัญชี 4–10 ตัวอักษร"
+                    placeholder={isThai ? 'กรอกชื่อบัญชี 4–10 ตัวอักษร' : 'Enter 4–10 character Account ID'}
                     className="w-full rounded-md border border-[#2E2922] bg-[#0E0D0B] px-3.5 py-2.5 text-sm text-[#F2ECE2] placeholder:text-[#6E665C] focus:border-[#C89B3C] focus:outline-none"
                   />
                 </div>
                 <div>
                   <label htmlFor="login-pwd" className="block text-xs font-medium text-[#C4BCB0] mb-1.5">
-                    รหัสผ่าน
+                    {isThai ? 'รหัสผ่าน' : 'Password'}
                   </label>
                   <input
                     id="login-pwd"
@@ -301,7 +330,7 @@ export function AccountView({
                     required
                     value={loginPwd}
                     onChange={(e) => setLoginPwd(e.target.value)}
-                    placeholder="กรอกรหัสผ่านบัญชีเกม"
+                    placeholder={isThai ? 'กรอกรหัสผ่านบัญชีเกม' : 'Enter your game password'}
                     className="w-full rounded-md border border-[#2E2922] bg-[#0E0D0B] px-3.5 py-2.5 text-sm text-[#F2ECE2] placeholder:text-[#6E665C] focus:border-[#C89B3C] focus:outline-none"
                   />
                 </div>
@@ -310,7 +339,13 @@ export function AccountView({
                   disabled={authSubmitting}
                   className="w-full rounded-md bg-[#C89B3C] px-4 py-2.5 text-sm font-semibold text-[#120F0A] transition-colors hover:bg-[#D9AE50] disabled:opacity-50"
                 >
-                  {authSubmitting ? 'กำลังตรวจสอบบัญชี...' : 'เข้าสู่ระบบ'}
+                  {authSubmitting
+                    ? isThai
+                      ? 'กำลังตรวจสอบบัญชี...'
+                      : 'Signing in...'
+                    : isThai
+                      ? 'เข้าสู่ระบบ'
+                      : 'Sign In'}
                 </button>
               </form>
             ) : (
@@ -318,7 +353,7 @@ export function AccountView({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor="reg-id" className="block text-xs font-medium text-[#C4BCB0] mb-1.5">
-                      ชื่อบัญชี (4–10 ตัวอักษร a-z, 0-9)
+                      {isThai ? 'ชื่อบัญชี (4–10 ตัวอักษร a-z, 0-9)' : 'Account ID (4–10 chars a-z, 0-9)'}
                     </label>
                     <input
                       id="reg-id"
@@ -327,13 +362,13 @@ export function AccountView({
                       maxLength={10}
                       value={regId}
                       onChange={(e) => setRegId(e.target.value)}
-                      placeholder="เช่น knight97"
+                      placeholder={isThai ? 'เช่น knight97' : 'e.g. knight97'}
                       className="w-full rounded-md border border-[#2E2922] bg-[#0E0D0B] px-3.5 py-2.5 text-sm text-[#F2ECE2] placeholder:text-[#6E665C] focus:border-[#C89B3C] focus:outline-none"
                     />
                   </div>
                   <div>
                     <label htmlFor="reg-name" className="block text-xs font-medium text-[#C4BCB0] mb-1.5">
-                      ชื่อผู้เล่น (สูงสุด 10 ตัวอักษร)
+                      {isThai ? 'ชื่อผู้เล่น (สูงสุด 10 ตัวอักษร)' : 'Display Name (max 10 chars)'}
                     </label>
                     <input
                       id="reg-name"
@@ -341,7 +376,7 @@ export function AccountView({
                       maxLength={10}
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
-                      placeholder="ชื่อเรียกในระบบ"
+                      placeholder={isThai ? 'ชื่อเรียกในระบบ' : 'Player display name'}
                       className="w-full rounded-md border border-[#2E2922] bg-[#0E0D0B] px-3.5 py-2.5 text-sm text-[#F2ECE2] placeholder:text-[#6E665C] focus:border-[#C89B3C] focus:outline-none"
                     />
                   </div>
@@ -349,7 +384,7 @@ export function AccountView({
 
                 <div>
                   <label htmlFor="reg-email" className="block text-xs font-medium text-[#C4BCB0] mb-1.5">
-                    อีเมล (mail_addr)
+                    {isThai ? 'อีเมล (mail_addr)' : 'Email Address (mail_addr)'}
                   </label>
                   <input
                     id="reg-email"
@@ -365,7 +400,7 @@ export function AccountView({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor="reg-pwd" className="block text-xs font-medium text-[#C4BCB0] mb-1.5">
-                      รหัสผ่าน (6–20 ตัวอักษร)
+                      {isThai ? 'รหัสผ่าน (6–20 ตัวอักษร)' : 'Password (6–20 chars)'}
                     </label>
                     <input
                       id="reg-pwd"
@@ -380,7 +415,7 @@ export function AccountView({
                   </div>
                   <div>
                     <label htmlFor="reg-pwd2" className="block text-xs font-medium text-[#C4BCB0] mb-1.5">
-                      ยืนยันรหัสผ่าน
+                      {isThai ? 'ยืนยันรหัสผ่าน' : 'Confirm Password'}
                     </label>
                     <input
                       id="reg-pwd2"
@@ -397,7 +432,9 @@ export function AccountView({
 
                 <div>
                   <label htmlFor="reg-sno" className="block text-xs font-medium text-[#C4BCB0] mb-1.5">
-                    รหัสส่วนบุคคล 18 หลัก (sno__numb สำหรับลบตัวละคร/ออกจากกิลด์ในเกม)
+                    {isThai
+                      ? 'รหัสส่วนบุคคล 18 หลัก (sno__numb สำหรับลบตัวละคร/ออกจากกิลด์ในเกม)'
+                      : '18-Digit Personal ID (sno__numb for in-game delete character / leave guild)'}
                   </label>
                   <input
                     id="reg-sno"
@@ -414,7 +451,13 @@ export function AccountView({
                   disabled={authSubmitting}
                   className="w-full rounded-md bg-[#C89B3C] px-4 py-2.5 text-sm font-semibold text-[#120F0A] transition-colors hover:bg-[#D9AE50] disabled:opacity-50"
                 >
-                  {authSubmitting ? 'กำลังสร้างบัญชีใน MuOnline97...' : 'ยืนยันสมัครสมาชิก'}
+                  {authSubmitting
+                    ? isThai
+                      ? 'กำลังสร้างบัญชีใน MuOnline97...'
+                      : 'Creating account in MuOnline97...'
+                    : isThai
+                      ? 'ยืนยันสมัครสมาชิก'
+                      : 'Register Account'}
                 </button>
               </form>
             )}
@@ -443,25 +486,33 @@ export function AccountView({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#9C9284]">
-              <span className="text-[#C89B3C] font-medium">{getAccountTierLabel(profile.AccountLevel)}</span>
+              <span className="text-[#C89B3C] font-medium">
+                {getAccountTierLabel(profile.AccountLevel, lang)}
+              </span>
               <span aria-hidden="true">·</span>
-              <span>{profile.mail_addr || 'ไม่ระบุอีเมล'}</span>
+              <span>{profile.mail_addr || (isThai ? 'ไม่ระบุอีเมล' : 'No email set')}</span>
               <span aria-hidden="true">·</span>
               <span className={isAccountOnline ? 'text-[#4ADE80]' : 'text-[#A89F91]'}>
-                {isAccountOnline ? `กำลังออนไลน์ (${profile.ServerName})` : 'ออฟไลน์ — พร้อมจัดการตัวละคร'}
+                {isAccountOnline
+                  ? isThai
+                    ? `กำลังออนไลน์ (${profile.ServerName})`
+                    : `Online (${profile.ServerName})`
+                  : isThai
+                    ? 'ออฟไลน์ — พร้อมจัดการตัวละคร'
+                    : 'Offline — Ready to manage characters'}
               </span>
             </div>
             <h1 className="font-display text-2xl font-bold text-[#F7F2E8]">
-              บัญชี {profile.memb___id} ({profile.memb_name})
+              {isThai ? 'บัญชี' : 'Account'} {profile.memb___id} ({profile.memb_name})
             </h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center gap-6 text-sm border-r border-[#26221D] pr-6">
               <div>
-                <div className="text-xs text-[#9C9284]">เวลาออนไลน์</div>
+                <div className="text-xs text-[#9C9284]">{isThai ? 'เวลาออนไลน์' : 'Online Time'}</div>
                 <div className="font-mono font-semibold tabular-nums text-[#F2ECE2]">
-                  {profile.OnlineHours.toLocaleString()} ชม.
+                  {profile.OnlineHours.toLocaleString()} {isThai ? 'ชม.' : 'hrs'}
                 </div>
               </div>
               <div>
@@ -484,7 +535,7 @@ export function AccountView({
               className="inline-flex items-center gap-1.5 rounded-md border border-[#352E25] px-3.5 py-2 text-xs font-medium text-[#C4BCB0] hover:border-[#7F1D1D] hover:text-[#FCA5A5] whitespace-nowrap"
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span>ออกจากระบบ</span>
+              <span>{isThai ? 'ออกจากระบบ' : 'Sign Out'}</span>
             </button>
           </div>
         </div>
@@ -509,7 +560,9 @@ export function AccountView({
         <div className="flex items-start gap-3 rounded-md border border-[#854D0E] bg-[#241B0D] px-4 py-3 text-sm text-[#FDE047]">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            ระบบตรวจพบว่าบัญชีนี้กำลังออนไลน์อยู่ในเกม (MEMB_STAT.ConnectStat = 1) เพื่อป้องกันข้อมูลทับกันใน GameServer กรุณาออกจากเกมก่อนใช้คำสั่งย้ายเมือง อัพสเตตัส รีเซ็ต หรือล้างกระเป๋า
+            {isThai
+              ? 'ระบบตรวจพบว่าบัญชีนี้กำลังออนไลน์อยู่ในเกม (MEMB_STAT.ConnectStat = 1) เพื่อป้องกันข้อมูลทับกันใน GameServer กรุณาออกจากเกมก่อนใช้คำสั่งย้ายเมือง อัพสเตตัส รีเซ็ต หรือล้างกระเป๋า'
+              : 'This account is currently online in-game (MEMB_STAT.ConnectStat = 1). Please disconnect from GameServer before using Move Home, Add Stats, Reset, or Clear Inventory.'}
           </span>
         </div>
       )}
@@ -520,7 +573,9 @@ export function AccountView({
         <aside className="space-y-4 lg:col-span-4">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-base font-semibold text-[#F5EFE6]">
-              ตัวละครในไอดี ({profile.Characters.length}/5)
+              {isThai
+                ? `ตัวละครในไอดี (${profile.Characters.length}/5)`
+                : `Characters (${profile.Characters.length}/5)`}
             </h2>
             {profile.Characters.length < 5 && (
               <button
@@ -529,7 +584,7 @@ export function AccountView({
                 className="inline-flex items-center gap-1 text-xs font-medium text-[#C89B3C] hover:text-[#E0B85A]"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span>สร้างตัวละคร</span>
+                <span>{isThai ? 'สร้างตัวละคร' : 'New Character'}</span>
               </button>
             )}
           </div>
@@ -540,11 +595,13 @@ export function AccountView({
               className="rounded-lg border border-[#3B3122] bg-[#171410] p-4 space-y-3"
             >
               <div className="text-xs font-semibold text-[#E0B85A]">
-                สร้างตัวละครใหม่ (อ้างอิง DefaultClassType)
+                {isThai ? 'สร้างตัวละครใหม่ (อ้างอิง DefaultClassType)' : 'Create Character (DefaultClassType)'}
               </div>
               <div>
                 <label htmlFor="new-char-name" className="block text-xs text-[#A89F91] mb-1">
-                  ชื่อตัวละคร (3–10 ตัวอักษรภาษาอังกฤษ/ตัวเลข)
+                  {isThai
+                    ? 'ชื่อตัวละคร (3–10 ตัวอักษรภาษาอังกฤษ/ตัวเลข)'
+                    : 'Character Name (3–10 alphanumeric chars)'}
                 </label>
                 <input
                   id="new-char-name"
@@ -553,13 +610,13 @@ export function AccountView({
                   maxLength={10}
                   value={newCharName}
                   onChange={(e) => setNewCharName(e.target.value)}
-                  placeholder="เช่น SiamKnight"
+                  placeholder={isThai ? 'เช่น SiamKnight' : 'e.g. LorenciaHero'}
                   className="w-full rounded border border-[#2E2922] bg-[#0E0D0B] px-3 py-2 text-sm text-[#F2ECE2] focus:border-[#C89B3C] focus:outline-none"
                 />
               </div>
               <div>
                 <label htmlFor="new-char-class" className="block text-xs text-[#A89F91] mb-1">
-                  เลือกสายอาชีพเริ่มต้น
+                  {isThai ? 'เลือกสายอาชีพเริ่มต้น' : 'Starting Class'}
                 </label>
                 <select
                   id="new-char-class"
@@ -569,7 +626,7 @@ export function AccountView({
                 >
                   {PLAYABLE_BASE_CLASSES.map((cls) => (
                     <option key={cls.classId} value={cls.classId}>
-                      {cls.name} ({cls.thaiName})
+                      {isThai ? `${cls.name} (${cls.thaiName})` : `${cls.name} — ${cls.roleEn}`}
                     </option>
                   ))}
                 </select>
@@ -580,14 +637,20 @@ export function AccountView({
                   disabled={busyAction === 'create-char'}
                   className="flex-1 rounded bg-[#C89B3C] px-3 py-2 text-xs font-semibold text-[#120F0A] hover:bg-[#D9AE50] disabled:opacity-50"
                 >
-                  {busyAction === 'create-char' ? 'กำลังสร้าง...' : 'ยืนยันสร้างตัวละคร'}
+                  {busyAction === 'create-char'
+                    ? isThai
+                      ? 'กำลังสร้าง...'
+                      : 'Creating...'
+                    : isThai
+                      ? 'ยืนยันสร้างตัวละคร'
+                      : 'Create Character'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateChar(false)}
                   className="rounded border border-[#2E2922] px-3 py-2 text-xs text-[#A89F91] hover:text-[#F2ECE2]"
                 >
-                  ยกเลิก
+                  {isThai ? 'ยกเลิก' : 'Cancel'}
                 </button>
               </div>
             </form>
@@ -596,14 +659,16 @@ export function AccountView({
           {profile.Characters.length === 0 ? (
             <div className="rounded-lg border border-[#26221D] bg-[#141210] p-6 text-center space-y-3">
               <p className="text-sm text-[#A89F91]">
-                ยังไม่มีตัวละครในบัญชีนี้ เริ่มสร้างตัวละครแรกของคุณได้เลย
+                {isThai
+                  ? 'ยังไม่มีตัวละครในบัญชีนี้ เริ่มสร้างตัวละครแรกของคุณได้เลย'
+                  : 'No characters on this account yet. Create your first hero to begin.'}
               </p>
               <button
                 type="button"
                 onClick={() => setShowCreateChar(true)}
                 className="rounded-md bg-[#C89B3C] px-4 py-2 text-xs font-semibold text-[#120F0A] hover:bg-[#D9AE50]"
               >
-                สร้างตัวละครแรก
+                {isThai ? 'สร้างตัวละครแรก' : 'Create First Character'}
               </button>
             </div>
           ) : (
@@ -669,23 +734,26 @@ export function AccountView({
                   <div>
                     <div className="text-xs text-[#C89B3C]">
                       {selectedChar.ClassName}
-                      {selectedChar.GuildName ? ` · กิลด์ ${selectedChar.GuildName}` : ''}
+                      {selectedChar.GuildName
+                        ? ` · ${isThai ? 'กิลด์' : 'Guild'} ${selectedChar.GuildName}`
+                        : ''}
                       {' · '}
                       <span className={selectedChar.PkLevel > 3 ? 'text-[#F87171]' : 'text-[#A89F91]'}>
-                        {getPkLabel(selectedChar.PkLevel)}
+                        {getPkLabel(selectedChar.PkLevel, lang)}
                       </span>
                     </div>
                     <h2 className="mt-1 font-display text-2xl font-bold text-[#F7F2E8]">
                       {selectedChar.Name}
                     </h2>
                     <div className="mt-1 text-xs text-[#9C9284] font-mono tabular-nums">
-                      พิกัด: {selectedChar.MapName} (Map {selectedChar.MapNumber} · X {selectedChar.MapPosX}, Y {selectedChar.MapPosY})
+                      {isThai ? 'พิกัด' : 'Location'}: {selectedChar.MapName} (Map {selectedChar.MapNumber} · X{' '}
+                      {selectedChar.MapPosX}, Y {selectedChar.MapPosY})
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-5 text-right font-mono tabular-nums">
                     <div>
-                      <div className="text-xs font-sans text-[#9C9284]">เลเวล</div>
+                      <div className="text-xs font-sans text-[#9C9284]">{isThai ? 'เลเวล' : 'Level'}</div>
                       <div className="text-xl font-semibold text-[#F5EFE6]">{selectedChar.cLevel}</div>
                     </div>
                     <div>
@@ -695,7 +763,9 @@ export function AccountView({
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-sans text-[#9C9284]">แต้มคงเหลือ</div>
+                      <div className="text-xs font-sans text-[#9C9284]">
+                        {isThai ? 'แต้มคงเหลือ' : 'Free Points'}
+                      </div>
                       <div className="text-xl font-semibold text-[#4ADE80]">
                         {selectedChar.LevelUpPoint.toLocaleString()}
                       </div>
@@ -730,13 +800,15 @@ export function AccountView({
                     </div>
                   </div>
                   <div className="rounded-md border border-[#24201B] bg-[#181512] p-3">
-                    <div className="text-xs font-sans text-[#9C9284]">เงิน Zen</div>
+                    <div className="text-xs font-sans text-[#9C9284]">{isThai ? 'เงิน Zen' : 'Zen'}</div>
                     <div className="mt-1 font-semibold text-[#E0B85A] truncate">
                       {selectedChar.Money.toLocaleString()}
                     </div>
                   </div>
                   <div className="rounded-md border border-[#24201B] bg-[#181512] p-3">
-                    <div className="text-xs font-sans text-[#9C9284]">ช่องกระเป๋า</div>
+                    <div className="text-xs font-sans text-[#9C9284]">
+                      {isThai ? 'ช่องกระเป๋า' : 'Inventory'}
+                    </div>
                     <div className="mt-1 font-semibold text-[#F2ECE2]">
                       {selectedChar.InventoryItemCount} / 76
                     </div>
@@ -754,7 +826,7 @@ export function AccountView({
                   }`}
                 >
                   <MapPin className="h-4 w-4" />
-                  <span>บริการตัวละคร</span>
+                  <span>{isThai ? 'บริการตัวละคร' : 'Character Services'}</span>
                 </button>
                 <button
                   type="button"
@@ -764,7 +836,7 @@ export function AccountView({
                   }`}
                 >
                   <Sliders className="h-4 w-4" />
-                  <span>อัพสเตตัสผ่านเว็บ</span>
+                  <span>{isThai ? 'อัพสเตตัสผ่านเว็บ' : 'Add Stat Points'}</span>
                 </button>
                 <button
                   type="button"
@@ -774,7 +846,7 @@ export function AccountView({
                   }`}
                 >
                   <KeyRound className="h-4 w-4" />
-                  <span>เปลี่ยนรหัสผ่าน</span>
+                  <span>{isThai ? 'เปลี่ยนรหัสผ่าน' : 'Change Password'}</span>
                 </button>
               </div>
 
@@ -785,12 +857,21 @@ export function AccountView({
                   <div className="flex flex-col justify-between rounded-lg border border-[#26221D] bg-[#141210] p-5 space-y-4">
                     <div className="space-y-1.5">
                       <h3 className="font-display text-base font-semibold text-[#F5EFE6]">
-                        วาร์ปกลับเมืองปลอดภัย (Move Home)
+                        {isThai ? 'วาร์ปกลับเมืองปลอดภัย (Move Home)' : 'Move Home (Safe Zone)'}
                       </h3>
                       <p className="text-xs leading-relaxed text-[#A89F91]">
-                        แก้ปัญหาตัวละครค้างแผนที่หรือเข้าเกมไม่ได้ ย้ายไปยัง{' '}
-                        <span className="font-mono text-[#E0B85A]">{safeZoneTargetLabel}</span>{' '}
-                        ตรงตามกฎของเซิร์ฟเวอร์
+                        {isThai ? (
+                          <>
+                            แก้ปัญหาตัวละครค้างแผนที่หรือเข้าเกมไม่ได้ ย้ายไปยัง{' '}
+                            <span className="font-mono text-[#E0B85A]">{safeZoneTargetLabel}</span>{' '}
+                            ตรงตามกฎของเซิร์ฟเวอร์
+                          </>
+                        ) : (
+                          <>
+                            Unstuck your character and teleport directly to{' '}
+                            <span className="font-mono text-[#E0B85A]">{safeZoneTargetLabel}</span>.
+                          </>
+                        )}
                       </p>
                     </div>
                     <button
@@ -802,8 +883,12 @@ export function AccountView({
                       <MapPin className="h-3.5 w-3.5" />
                       <span>
                         {selectedChar.Cooldowns && selectedChar.Cooldowns.moveHomeSeconds > 0
-                          ? `รอคูลดาวน์ (${selectedChar.Cooldowns.moveHomeSeconds} วิ)`
-                          : 'วาร์ปกลับเขตปลอดภัย'}
+                          ? isThai
+                            ? `รอคูลดาวน์ (${selectedChar.Cooldowns.moveHomeSeconds} วิ)`
+                            : `Cooldown (${selectedChar.Cooldowns.moveHomeSeconds}s)`
+                          : isThai
+                            ? 'วาร์ปกลับเขตปลอดภัย'
+                            : 'Warp to Safe Zone'}
                       </span>
                     </button>
                   </div>
@@ -812,10 +897,12 @@ export function AccountView({
                   <div className="flex flex-col justify-between rounded-lg border border-[#26221D] bg-[#141210] p-5 space-y-4">
                     <div className="space-y-1.5">
                       <h3 className="font-display text-base font-semibold text-[#F5EFE6]">
-                        รีเซ็ตตัวละคร (Web Reset)
+                        {isThai ? 'รีเซ็ตตัวละคร (Web Reset)' : 'Web Reset'}
                       </h3>
                       <p className="text-xs leading-relaxed text-[#A89F91]">
-                        เงื่อนไข Command.dat: เลเวล {SERVER_CONFIG_SPECS.resetLevel} ขึ้นไป · ฟรี 0 Zen · เก็บสเตตัส สกิล และเควสต์เดิมครบทั้งหมด
+                        {isThai
+                          ? `เงื่อนไข Command.dat: เลเวล ${SERVER_CONFIG_SPECS.resetLevel} ขึ้นไป · ฟรี 0 Zen · เก็บสเตตัส สกิล และเควสต์เดิมครบทั้งหมด`
+                          : `Command.dat rules: Level ${SERVER_CONFIG_SPECS.resetLevel}+ · Free (0 Zen) · Keeps all stats, skills, and quests.`}
                       </p>
                     </div>
                     <button
@@ -831,8 +918,12 @@ export function AccountView({
                       <RefreshCw className="h-3.5 w-3.5" />
                       <span>
                         {selectedChar.cLevel >= SERVER_CONFIG_SPECS.resetLevel
-                          ? `ทำ Reset #${selectedChar.ResetCount + 1} ทันที`
-                          : `ต้องการเลเวล ${SERVER_CONFIG_SPECS.resetLevel} (ปัจจุบัน Lv.${selectedChar.cLevel})`}
+                          ? isThai
+                            ? `ทำ Reset #${selectedChar.ResetCount + 1} ทันที`
+                            : `Perform Reset #${selectedChar.ResetCount + 1}`
+                          : isThai
+                            ? `ต้องการเลเวล ${SERVER_CONFIG_SPECS.resetLevel} (ปัจจุบัน Lv.${selectedChar.cLevel})`
+                            : `Requires Lv.${SERVER_CONFIG_SPECS.resetLevel} (Current Lv.${selectedChar.cLevel})`}
                       </span>
                     </button>
                   </div>
@@ -841,12 +932,22 @@ export function AccountView({
                   <div className="flex flex-col justify-between rounded-lg border border-[#26221D] bg-[#141210] p-5 space-y-4">
                     <div className="space-y-1.5">
                       <h3 className="font-display text-base font-semibold text-[#F5EFE6]">
-                        ล้างหัวแดง (PK Clear)
+                        {isThai ? 'ล้างหัวแดง (PK Clear)' : 'PK Clear'}
                       </h3>
                       <p className="text-xs leading-relaxed text-[#A89F91]">
-                        รีเซ็ตสถานะ PK จาก{' '}
-                        <span className="text-[#E3DDD3]">{getPkLabel(selectedChar.PkLevel)}</span>{' '}
-                        (สังหาร {selectedChar.PkCount} ครั้ง) กลับเป็นสถานะปกติ
+                        {isThai ? (
+                          <>
+                            รีเซ็ตสถานะ PK จาก{' '}
+                            <span className="text-[#E3DDD3]">{getPkLabel(selectedChar.PkLevel, lang)}</span>{' '}
+                            (สังหาร {selectedChar.PkCount} ครั้ง) กลับเป็นสถานะปกติ
+                          </>
+                        ) : (
+                          <>
+                            Restore PK status from{' '}
+                            <span className="text-[#E3DDD3]">{getPkLabel(selectedChar.PkLevel, lang)}</span>{' '}
+                            ({selectedChar.PkCount} kills) back to Commoner.
+                          </>
+                        )}
                       </p>
                     </div>
                     <button
@@ -857,7 +958,13 @@ export function AccountView({
                     >
                       <ShieldCheck className="h-3.5 w-3.5" />
                       <span>
-                        {selectedChar.PkLevel > 3 ? 'ล้างค่าหัวแดงทันที' : 'ตัวละครมีสถานะปกติอยู่แล้ว'}
+                        {selectedChar.PkLevel > 3
+                          ? isThai
+                            ? 'ล้างค่าหัวแดงทันที'
+                            : 'Clear PK Status Now'
+                          : isThai
+                            ? 'ตัวละครมีสถานะปกติอยู่แล้ว'
+                            : 'Character is already Commoner'}
                       </span>
                     </button>
                   </div>
@@ -866,10 +973,12 @@ export function AccountView({
                   <div className="flex flex-col justify-between rounded-lg border border-[#3A2220] bg-[#161110] p-5 space-y-4">
                     <div className="space-y-1.5">
                       <h3 className="font-display text-base font-semibold text-[#FCA5A5]">
-                        ล้างกระเป๋าตัวละคร (Clear Inventory)
+                        {isThai ? 'ล้างกระเป๋าตัวละคร (Clear Inventory)' : 'Clear Inventory'}
                       </h3>
                       <p className="text-xs leading-relaxed text-[#C4A8A4]">
-                        เขียนทับข้อมูล Inventory 760 ไบต์เป็น 0xFF ทั้งหมด ใช้เมื่อเกิดบั๊กไอเทมในกระเป๋า (ไม่สามารถกู้คืนได้)
+                        {isThai
+                          ? 'เขียนทับข้อมูล Inventory 760 ไบต์เป็น 0xFF ทั้งหมด ใช้เมื่อเกิดบั๊กไอเทมในกระเป๋า (ไม่สามารถกู้คืนได้)'
+                          : 'Overwrites all 760 inventory bytes with 0xFF. Use to fix bugged inventory slots (cannot be undone).'}
                       </p>
                     </div>
                     {!confirmClearInv ? (
@@ -880,7 +989,11 @@ export function AccountView({
                         className="inline-flex items-center justify-center gap-2 rounded-md border border-[#7F1D1D] bg-[#2A1212] px-4 py-2 text-xs font-semibold text-[#FCA5A5] hover:bg-[#3B1717] disabled:opacity-40"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                        <span>ล้างกระเป๋า ({selectedChar.InventoryItemCount} ช่องที่มีไอเทม)</span>
+                        <span>
+                          {isThai
+                            ? `ล้างกระเป๋า (${selectedChar.InventoryItemCount} ช่องที่มีไอเทม)`
+                            : `Clear Inventory (${selectedChar.InventoryItemCount} occupied slots)`}
+                        </span>
                       </button>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -892,14 +1005,14 @@ export function AccountView({
                           }
                           className="flex-1 rounded-md bg-[#B91C1C] px-3 py-2 text-xs font-semibold text-white hover:bg-[#DC2626]"
                         >
-                          ยืนยันลบไอเทมทั้งหมด
+                          {isThai ? 'ยืนยันลบไอเทมทั้งหมด' : 'Confirm Wipe Inventory'}
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmClearInv(false)}
                           className="rounded-md border border-[#3B2E2A] px-3 py-2 text-xs text-[#C4BCB0]"
                         >
-                          ยกเลิก
+                          {isThai ? 'ยกเลิก' : 'Cancel'}
                         </button>
                       </div>
                     )}
@@ -916,14 +1029,20 @@ export function AccountView({
                   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#24201B] pb-4">
                     <div>
                       <h3 className="font-display text-lg font-semibold text-[#F5EFE6]">
-                        กระจายแต้มสเตตัสให้ {selectedChar.Name}
+                        {isThai
+                          ? `กระจายแต้มสเตตัสให้ ${selectedChar.Name}`
+                          : `Allocate Stat Points for ${selectedChar.Name}`}
                       </h3>
                       <p className="text-xs text-[#9C9284]">
-                        จำกัดสูงสุด {SERVER_CONFIG_SPECS.maxStatPoint.toLocaleString()} แต้มต่อช่อง (MaxStatPoint_AL0)
+                        {isThai
+                          ? `จำกัดสูงสุด ${SERVER_CONFIG_SPECS.maxStatPoint.toLocaleString()} แต้มต่อช่อง (MaxStatPoint_AL0)`
+                          : `Maximum ${SERVER_CONFIG_SPECS.maxStatPoint.toLocaleString()} points per attribute (MaxStatPoint_AL0).`}
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-[#9C9284]">แต้มคงเหลือหลังเพิ่ม</div>
+                      <div className="text-xs text-[#9C9284]">
+                        {isThai ? 'แต้มคงเหลือหลังเพิ่ม' : 'Points Remaining'}
+                      </div>
                       <div
                         className={`font-mono text-xl font-semibold tabular-nums ${
                           remainingAfterAdd < 0 ? 'text-[#F87171]' : 'text-[#4ADE80]'
@@ -989,7 +1108,7 @@ export function AccountView({
                       }}
                       className="text-xs text-[#9C9284] hover:text-[#F2ECE2]"
                     >
-                      ล้างตัวเลขที่กรอก
+                      {isThai ? 'ล้างตัวเลขที่กรอก' : 'Clear Inputs'}
                     </button>
                     <button
                       type="submit"
@@ -1002,8 +1121,12 @@ export function AccountView({
                       className="rounded-md bg-[#C89B3C] px-6 py-2.5 text-sm font-semibold text-[#120F0A] hover:bg-[#D9AE50] disabled:opacity-45"
                     >
                       {busyAction === 'add-stats'
-                        ? 'กำลังบันทึกสเตตัส...'
-                        : `ยืนยันอัพ ${totalAddPoints.toLocaleString()} แต้ม`}
+                        ? isThai
+                          ? 'กำลังบันทึกสเตตัส...'
+                          : 'Saving Stats...'
+                        : isThai
+                          ? `ยืนยันอัพ ${totalAddPoints.toLocaleString()} แต้ม`
+                          : `Apply ${totalAddPoints.toLocaleString()} Points`}
                     </button>
                   </div>
                 </form>
@@ -1017,16 +1140,20 @@ export function AccountView({
                 >
                   <div>
                     <h3 className="font-display text-lg font-semibold text-[#F5EFE6]">
-                      เปลี่ยนรหัสผ่านบัญชี (MEMB_INFO.memb__pwd)
+                      {isThai
+                        ? 'เปลี่ยนรหัสผ่านบัญชี (MEMB_INFO.memb__pwd)'
+                        : 'Change Account Password (MEMB_INFO.memb__pwd)'}
                     </h3>
                     <p className="text-xs text-[#9C9284]">
-                      รหัสผ่านใหม่จะถูกเข้ารหัสด้วย bcrypt (Cost 10) เพื่อใช้งานกับ JoinServer ทันที
+                      {isThai
+                        ? 'รหัสผ่านใหม่จะถูกเข้ารหัสด้วย bcrypt (Cost 10) เพื่อใช้งานกับ JoinServer ทันที'
+                        : 'Your new password is hashed with bcrypt (cost 10) and syncs with JoinServer immediately.'}
                     </p>
                   </div>
 
                   <div>
                     <label htmlFor="cur-pwd" className="block text-xs text-[#C4BCB0] mb-1.5">
-                      รหัสผ่านปัจจุบัน
+                      {isThai ? 'รหัสผ่านปัจจุบัน' : 'Current Password'}
                     </label>
                     <input
                       id="cur-pwd"
@@ -1039,7 +1166,7 @@ export function AccountView({
                   </div>
                   <div>
                     <label htmlFor="new-pwd" className="block text-xs text-[#C4BCB0] mb-1.5">
-                      รหัสผ่านใหม่ (6–20 ตัวอักษร)
+                      {isThai ? 'รหัสผ่านใหม่ (6–20 ตัวอักษร)' : 'New Password (6–20 chars)'}
                     </label>
                     <input
                       id="new-pwd"
@@ -1054,7 +1181,7 @@ export function AccountView({
                   </div>
                   <div>
                     <label htmlFor="new-pwd2" className="block text-xs text-[#C4BCB0] mb-1.5">
-                      ยืนยันรหัสผ่านใหม่
+                      {isThai ? 'ยืนยันรหัสผ่านใหม่' : 'Confirm New Password'}
                     </label>
                     <input
                       id="new-pwd2"
@@ -1073,7 +1200,13 @@ export function AccountView({
                     disabled={busyAction === 'change-pwd'}
                     className="rounded-md bg-[#C89B3C] px-5 py-2.5 text-sm font-semibold text-[#120F0A] hover:bg-[#D9AE50] disabled:opacity-50"
                   >
-                    {busyAction === 'change-pwd' ? 'กำลังอัปเดตรหัสผ่าน...' : 'บันทึกรหัสผ่านใหม่'}
+                    {busyAction === 'change-pwd'
+                      ? isThai
+                        ? 'กำลังอัปเดตรหัสผ่าน...'
+                        : 'Updating Password...'
+                      : isThai
+                        ? 'บันทึกรหัสผ่านใหม่'
+                        : 'Save New Password'}
                   </button>
                 </form>
               )}
@@ -1081,10 +1214,12 @@ export function AccountView({
           ) : (
             <div className="rounded-lg border border-[#26221D] bg-[#141210] p-10 text-center space-y-3">
               <h2 className="font-display text-lg font-semibold text-[#F5EFE6]">
-                เลือกหรือสร้างตัวละครเพื่อเริ่มจัดการ
+                {isThai ? 'เลือกหรือสร้างตัวละครเพื่อเริ่มจัดการ' : 'Select or Create a Character'}
               </h2>
               <p className="text-sm text-[#A89F91]">
-                เมื่อสร้างตัวละครแล้ว คุณสามารถวาร์ปกลับเมือง อัพสเตตัส ทำรีเซ็ต และล้างหัวแดงได้จากหน้านี้ทันที
+                {isThai
+                  ? 'เมื่อสร้างตัวละครแล้ว คุณสามารถวาร์ปกลับเมือง อัพสเตตัส ทำรีเซ็ต และล้างหัวแดงได้จากหน้านี้ทันที'
+                  : 'Once you create a hero, you can warp home, allocate stat points, reset, and clear PK directly from this dashboard.'}
               </p>
             </div>
           )}

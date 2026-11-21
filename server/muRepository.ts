@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import net from 'node:net';
+import path from 'node:path';
 import mysql, { type Pool, type RowDataPacket, type ResultSetHeader } from 'mysql2/promise';
 import {
   PLAYABLE_BASE_CLASSES,
@@ -8,7 +10,9 @@ import {
   getClassName,
   getMapName,
   type AccountProfile,
+  type AdminSessionInfo,
   type CharacterRecord,
+  type DownloadItem,
   type EventRankingRow,
   type NewsItem,
   type RankingCharacterRow,
@@ -19,6 +23,13 @@ import {
 const BCRYPT_COST = 10;
 const COOLDOWN_MINUTES = Math.max(1, Number.parseInt(process.env.ACTION_COOLDOWN_MINUTES || '3', 10) || 3);
 const COOLDOWN_MS = COOLDOWN_MINUTES * 60 * 1000;
+
+const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DOWNLOADS_FILE = process.env.DOWNLOADS_CONFIG_PATH
+  ? path.resolve(process.env.DOWNLOADS_CONFIG_PATH)
+  : path.join(DATA_DIR, 'downloads.json');
+const LOCAL_NEWS_FILE = path.join(DATA_DIR, 'news.json');
+const LOCAL_ADMIN_FILE = path.join(DATA_DIR, 'admin-override.json');
 
 interface MembInfoRow {
   memb___id: string;
@@ -94,6 +105,11 @@ interface RawGoldenArcherRow {
   LuckyNumber: string | null;
 }
 
+interface LocalAdminOverride {
+  username: string;
+  passwordHash: string;
+}
+
 function isBcryptHash(buf: Buffer): boolean {
   const text = buf.toString('latin1');
   return /^\$2[aby]\$\d\d\$[./A-Za-z0-9]{53}$/.test(text);
@@ -109,6 +125,33 @@ function countInventoryItems(inv: Buffer | null | undefined): number {
     }
   }
   return occupied;
+}
+
+function makeExcerpt(body: string, maxLen = 180): string {
+  const plain = String(body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return plain.length > maxLen ? `${plain.slice(0, maxLen)}...` : plain;
+}
+
+function ensureDirFor(filePath: string): void {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function readJsonFile<T>(filePath: string, fallback: T): T {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJsonFile(filePath: string, data: unknown): void {
+  ensureDirFor(filePath);
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
 async function probeTcpPort(host: string, port: number, timeoutMs = 450): Promise<boolean> {
@@ -147,7 +190,6 @@ class MuRepository {
   private rankingDS = new Map<string, number>();
   private goldenArcher = new Map<string, RawGoldenArcherRow>();
   private cooldowns = new Map<string, number>();
-  private news: NewsItem[] = [];
 
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -176,6 +218,17 @@ class MuRepository {
             PRIMARY KEY (account_id, char_name, action)
           )
         `);
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS web_news (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(200) NOT NULL,
+            body TEXT NOT NULL,
+            body_is_html TINYINT(1) NOT NULL DEFAULT 0,
+            hide_title TINYINT(1) NOT NULL DEFAULT 0,
+            published TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
         this.pool = pool;
         this.mode = 'mysql-live';
         console.log(`[MuOrigins] Connected to live MySQL MuOnline97 at ${host}`);
@@ -192,6 +245,419 @@ class MuRepository {
     return this.mode;
   }
 
+  // =========================================================================
+  // Admin Auth (shared with Mu-Linux server: web_admins / ADMIN_USER+ADMIN_PASS / GM CtlCode>=8)
+  // =========================================================================
+  async verifyAdminLogin(
+    username: string,
+    password: string
+  ): Promise<{ ok: true; admin: AdminSessionInfo } | { ok: false; error: string }> {
+    await this.init();
+    const user = username.trim();
+    if (!user || !password) {
+      return { ok: false, error: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่านผู้ดูแลระบบ' };
+    }
+
+    // 1. Check Mu-Linux web_admins table in MySQL if live
+    if (this.mode === 'mysql-live' && this.pool) {
+      try {
+        const [rows] = await this.pool.query<RowDataPacket[]>(
+          'SELECT username, password_hash FROM web_admins WHERE username = ? LIMIT 1',
+          [user]
+        );
+        if (rows.length > 0) {
+          const storedHash = String(rows[0].password_hash || '');
+          const matched = storedHash.startsWith('$2')
+            ? await bcrypt.compare(password, storedHash)
+            : storedHash === password;
+          if (matched) {
+            return { ok: true, admin: { username: String(rows[0].username), authSource: 'web_admins' } };
+          }
+          return { ok: false, error: 'รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง' };
+        }
+      } catch {
+        // web_admins table may not exist yet — continue to env & GM checks
+      }
+    }
+
+    // 2. Check local overridden admin password (if changed via admin panel without MySQL)
+    const localOverride = readJsonFile<LocalAdminOverride | null>(LOCAL_ADMIN_FILE, null);
+    if (localOverride && localOverride.username.toLowerCase() === user.toLowerCase()) {
+      const ok = await bcrypt.compare(password, localOverride.passwordHash);
+      if (ok) {
+        return { ok: true, admin: { username: localOverride.username, authSource: 'server_env' } };
+      }
+      return { ok: false, error: 'รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง' };
+    }
+
+    // 3. Check Mu-Linux server ADMIN_USER / ADMIN_PASS environment variables (defaults: admin / 123456)
+    const envUser = (process.env.ADMIN_USER || 'admin').trim();
+    const envPass = process.env.ADMIN_PASS || '123456';
+    if (user.toLowerCase() === envUser.toLowerCase()) {
+      const a = Buffer.from(password, 'utf8');
+      const b = Buffer.from(envPass, 'utf8');
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+        return { ok: true, admin: { username: envUser, authSource: 'server_env' } };
+      }
+      return { ok: false, error: 'รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง' };
+    }
+
+    // 4. Allow in-game GameMaster / Administrator accounts (MEMB_INFO + Character.CtlCode >= 8)
+    if (this.mode === 'mysql-live' && this.pool) {
+      const playerAuth = await this.verifyLogin(user, password);
+      if (playerAuth.ok) {
+        const [gmRows] = await this.pool.query<RowDataPacket[]>(
+          'SELECT Name FROM `Character` WHERE AccountID = ? AND CtlCode >= 8 LIMIT 1',
+          [playerAuth.accountId]
+        );
+        if (gmRows.length > 0) {
+          return { ok: true, admin: { username: playerAuth.accountId, authSource: 'gm_account' } };
+        }
+      }
+    }
+
+    return { ok: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านผู้ดูแลระบบไม่ถูกต้อง' };
+  }
+
+  async changeAdminPassword(
+    admin: AdminSessionInfo,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+    await this.init();
+    if (newPassword.length < 6 || newPassword.length > 64) {
+      return { ok: false, error: 'รหัสผ่านผู้ดูแลระบบใหม่ต้องมีความยาว 6–64 ตัวอักษร' };
+    }
+
+    const verified = await this.verifyAdminLogin(admin.username, currentPassword);
+    if (!verified.ok) {
+      return { ok: false, error: 'รหัสผ่านผู้ดูแลระบบปัจจุบันไม่ถูกต้อง' };
+    }
+
+    if (admin.authSource === 'gm_account') {
+      const res = await this.changePassword(admin.username, currentPassword, newPassword);
+      if (!res.ok) return res;
+      return { ok: true, message: 'เปลี่ยนรหัสผ่านบัญชี GM/Admin ใน MEMB_INFO เรียบร้อยแล้ว' };
+    }
+
+    const hash = await bcrypt.hash(newPassword, BCRYPT_COST);
+
+    if (this.mode === 'mysql-live' && this.pool) {
+      try {
+        await this.pool.query(`
+          CREATE TABLE IF NOT EXISTS web_admins (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(50) NOT NULL UNIQUE,
+            password_hash VARCHAR(100) NOT NULL,
+            must_change_password TINYINT(1) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        await this.pool.query(
+          `INSERT INTO web_admins (username, password_hash, must_change_password)
+           VALUES (?, ?, 0)
+           ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), must_change_password = 0`,
+          [admin.username, hash]
+        );
+        return { ok: true, message: 'อัปเดตรหัสผ่านผู้ดูแลระบบในตาราง web_admins เรียบร้อยแล้ว' };
+      } catch (err) {
+        return { ok: false, error: `ไม่สามารถบันทึกรหัสผ่านใน MySQL ได้: ${(err as Error).message}` };
+      }
+    }
+
+    writeJsonFile(LOCAL_ADMIN_FILE, { username: admin.username, passwordHash: hash } satisfies LocalAdminOverride);
+    return { ok: true, message: 'เปลี่ยนรหัสผ่านผู้ดูแลระบบเรียบร้อยแล้ว' };
+  }
+
+  // =========================================================================
+  // News CRUD (Mu-Linux web_news table or persisted data/news.json)
+  // =========================================================================
+  private readLocalNews(): NewsItem[] {
+    return readJsonFile<NewsItem[]>(LOCAL_NEWS_FILE, []);
+  }
+
+  private writeLocalNews(items: NewsItem[]): void {
+    writeJsonFile(LOCAL_NEWS_FILE, items);
+  }
+
+  async getNews(): Promise<NewsItem[]> {
+    await this.init();
+    if (this.mode === 'mysql-live' && this.pool) {
+      try {
+        const [rows] = await this.pool.query<RowDataPacket[]>(
+          'SELECT id, title, body, published, created_at FROM web_news WHERE published = 1 ORDER BY created_at DESC LIMIT 30'
+        );
+        return rows.map((r) => {
+          const body = String(r.body || '');
+          return {
+            id: Number(r.id),
+            title: String(r.title || ''),
+            category: 'ประกาศเซิร์ฟเวอร์',
+            excerpt: makeExcerpt(body),
+            body,
+            published: true,
+            createdAt: new Date(r.created_at).toISOString(),
+          };
+        });
+      } catch {
+        return [];
+      }
+    }
+    return this.readLocalNews()
+      .filter((n) => n.published !== false)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getAllNewsAdmin(): Promise<NewsItem[]> {
+    await this.init();
+    if (this.mode === 'mysql-live' && this.pool) {
+      try {
+        const [rows] = await this.pool.query<RowDataPacket[]>(
+          'SELECT id, title, body, published, created_at FROM web_news ORDER BY created_at DESC LIMIT 100'
+        );
+        return rows.map((r) => {
+          const body = String(r.body || '');
+          return {
+            id: Number(r.id),
+            title: String(r.title || ''),
+            category: 'ประกาศเซิร์ฟเวอร์',
+            excerpt: makeExcerpt(body),
+            body,
+            published: Number(r.published) === 1,
+            createdAt: new Date(r.created_at).toISOString(),
+          };
+        });
+      } catch {
+        return [];
+      }
+    }
+    return this.readLocalNews().sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  async createNews(input: {
+    title: string;
+    category: string;
+    body: string;
+    published: boolean;
+  }): Promise<{ ok: true; item: NewsItem } | { ok: false; error: string }> {
+    await this.init();
+    const title = input.title.trim();
+    const body = input.body.trim();
+    const category = (input.category || 'ประกาศเซิร์ฟเวอร์').trim();
+    const published = Boolean(input.published);
+
+    if (!title || title.length > 200) {
+      return { ok: false, error: 'กรุณาระบุหัวข้อข่าว (1–200 ตัวอักษร)' };
+    }
+    if (!body) {
+      return { ok: false, error: 'กรุณากรอกเนื้อหาข่าวสาร' };
+    }
+
+    if (this.mode === 'mysql-live' && this.pool) {
+      const [res] = await this.pool.query<ResultSetHeader>(
+        'INSERT INTO web_news (title, body, body_is_html, hide_title, published, created_at) VALUES (?, ?, 0, 0, ?, NOW())',
+        [title, body, published ? 1 : 0]
+      );
+      return {
+        ok: true,
+        item: {
+          id: Number(res.insertId),
+          title,
+          category,
+          excerpt: makeExcerpt(body),
+          body,
+          published,
+          createdAt: new Date().toISOString(),
+        },
+      };
+    }
+
+    const list = this.readLocalNews();
+    const nextId = list.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+    const item: NewsItem = {
+      id: nextId,
+      title,
+      category,
+      excerpt: makeExcerpt(body),
+      body,
+      published,
+      createdAt: new Date().toISOString(),
+    };
+    list.unshift(item);
+    this.writeLocalNews(list);
+    return { ok: true, item };
+  }
+
+  async updateNews(
+    id: number,
+    input: { title: string; category: string; body: string; published: boolean }
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    await this.init();
+    const title = input.title.trim();
+    const body = input.body.trim();
+    const category = (input.category || 'ประกาศเซิร์ฟเวอร์').trim();
+    const published = Boolean(input.published);
+
+    if (!title || title.length > 200) {
+      return { ok: false, error: 'กรุณาระบุหัวข้อข่าว (1–200 ตัวอักษร)' };
+    }
+    if (!body) {
+      return { ok: false, error: 'กรุณากรอกเนื้อหาข่าวสาร' };
+    }
+
+    if (this.mode === 'mysql-live' && this.pool) {
+      const [res] = await this.pool.query<ResultSetHeader>(
+        'UPDATE web_news SET title = ?, body = ?, published = ? WHERE id = ?',
+        [title, body, published ? 1 : 0, id]
+      );
+      if (res.affectedRows === 0) return { ok: false, error: 'ไม่พบประกาศข่าวสารที่ต้องการแก้ไข' };
+      return { ok: true };
+    }
+
+    const list = this.readLocalNews();
+    const idx = list.findIndex((n) => n.id === id);
+    if (idx === -1) return { ok: false, error: 'ไม่พบประกาศข่าวสารที่ต้องการแก้ไข' };
+    list[idx] = {
+      ...list[idx],
+      title,
+      category,
+      body,
+      excerpt: makeExcerpt(body),
+      published,
+    };
+    this.writeLocalNews(list);
+    return { ok: true };
+  }
+
+  async deleteNews(id: number): Promise<{ ok: true } | { ok: false; error: string }> {
+    await this.init();
+    if (this.mode === 'mysql-live' && this.pool) {
+      const [res] = await this.pool.query<ResultSetHeader>('DELETE FROM web_news WHERE id = ?', [id]);
+      if (res.affectedRows === 0) return { ok: false, error: 'ไม่พบประกาศข่าวสารที่ต้องการลบ' };
+      return { ok: true };
+    }
+
+    const list = this.readLocalNews();
+    const next = list.filter((n) => n.id !== id);
+    if (next.length === list.length) return { ok: false, error: 'ไม่พบประกาศข่าวสารที่ต้องการลบ' };
+    this.writeLocalNews(next);
+    return { ok: true };
+  }
+
+  // =========================================================================
+  // Downloads CRUD (persisted in DOWNLOADS_CONFIG_PATH / data/downloads.json)
+  // =========================================================================
+  private readDownloadsFile(): DownloadItem[] {
+    return readJsonFile<DownloadItem[]>(DOWNLOADS_FILE, []);
+  }
+
+  private writeDownloadsFile(items: DownloadItem[]): void {
+    writeJsonFile(DOWNLOADS_FILE, items);
+  }
+
+  async getPublicDownloads(): Promise<DownloadItem[]> {
+    return this.readDownloadsFile().filter((d) => d.published);
+  }
+
+  async getAllDownloadsAdmin(): Promise<DownloadItem[]> {
+    return this.readDownloadsFile();
+  }
+
+  async createDownload(input: {
+    platform: string;
+    title: string;
+    renderer: string;
+    version: string;
+    size: string;
+    url: string;
+    highlights: string[];
+    published: boolean;
+  }): Promise<{ ok: true; item: DownloadItem } | { ok: false; error: string }> {
+    const title = input.title.trim();
+    const platform = input.platform.trim();
+    const url = input.url.trim();
+    if (!title || !platform) {
+      return { ok: false, error: 'กรุณาระบุชื่อไฟล์และแพลตฟอร์ม' };
+    }
+    if (!/^https?:\/\/.+/i.test(url) && !url.startsWith('/')) {
+      return { ok: false, error: 'ลิงก์ดาวน์โหลดต้องขึ้นต้นด้วย https://, http:// หรือ /' };
+    }
+
+    const item: DownloadItem = {
+      id: `dl_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`,
+      platform,
+      title,
+      renderer: (input.renderer || 'OpenGL 3.3 / WebGPU').trim(),
+      version: (input.version || '0.97k').trim(),
+      size: (input.size || '-').trim(),
+      url,
+      highlights: (input.highlights || []).map((s) => s.trim()).filter(Boolean),
+      published: Boolean(input.published),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const list = this.readDownloadsFile();
+    list.unshift(item);
+    this.writeDownloadsFile(list);
+    return { ok: true, item };
+  }
+
+  async updateDownload(
+    id: string,
+    input: {
+      platform: string;
+      title: string;
+      renderer: string;
+      version: string;
+      size: string;
+      url: string;
+      highlights: string[];
+      published: boolean;
+    }
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    const title = input.title.trim();
+    const platform = input.platform.trim();
+    const url = input.url.trim();
+    if (!title || !platform) {
+      return { ok: false, error: 'กรุณาระบุชื่อไฟล์และแพลตฟอร์ม' };
+    }
+    if (!/^https?:\/\/.+/i.test(url) && !url.startsWith('/')) {
+      return { ok: false, error: 'ลิงก์ดาวน์โหลดต้องขึ้นต้นด้วย https://, http:// หรือ /' };
+    }
+
+    const list = this.readDownloadsFile();
+    const idx = list.findIndex((d) => d.id === id);
+    if (idx === -1) return { ok: false, error: 'ไม่พบรายการดาวน์โหลดที่ต้องการแก้ไข' };
+
+    list[idx] = {
+      ...list[idx],
+      platform,
+      title,
+      renderer: (input.renderer || '').trim(),
+      version: (input.version || '').trim(),
+      size: (input.size || '').trim(),
+      url,
+      highlights: (input.highlights || []).map((s) => s.trim()).filter(Boolean),
+      published: Boolean(input.published),
+      updatedAt: new Date().toISOString(),
+    };
+    this.writeDownloadsFile(list);
+    return { ok: true };
+  }
+
+  async deleteDownload(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    const list = this.readDownloadsFile();
+    const next = list.filter((d) => d.id !== id);
+    if (next.length === list.length) return { ok: false, error: 'ไม่พบรายการดาวน์โหลดที่ต้องการลบ' };
+    this.writeDownloadsFile(next);
+    return { ok: true };
+  }
+
+  // =========================================================================
+  // Overview, Rankings & Player Account Operations
+  // =========================================================================
   async getOverview(): Promise<ServerOverview> {
     await this.init();
     const csHost = process.env.CS_HOST || '127.0.0.1';
@@ -224,7 +690,7 @@ class MuRepository {
           totalGuilds: Number(guildRow?.cnt || 0),
         },
         topPlayers,
-        news: news.slice(0, 3),
+        news: news.slice(0, 5),
         serverTimeIso: new Date().toISOString(),
       };
     }
@@ -233,7 +699,10 @@ class MuRepository {
     for (const st of this.membStat.values()) {
       if (st.ConnectStat === 1) onlinePlayers++;
     }
-    const topPlayers = await this.getCharacterRankings('resets', undefined, undefined, 5);
+    const [topPlayers, news] = await Promise.all([
+      this.getCharacterRankings('resets', undefined, undefined, 5),
+      this.getNews(),
+    ]);
 
     return {
       connectionMode: 'unconfigured',
@@ -247,34 +716,9 @@ class MuRepository {
         totalGuilds: this.guilds.size,
       },
       topPlayers,
-      news: this.news.slice(0, 3),
+      news: news.slice(0, 5),
       serverTimeIso: new Date().toISOString(),
     };
-  }
-
-  async getNews(): Promise<NewsItem[]> {
-    await this.init();
-    if (this.mode === 'mysql-live' && this.pool) {
-      try {
-        const [rows] = await this.pool.query<RowDataPacket[]>(
-          'SELECT id, title, body, created_at FROM web_news WHERE published = 1 ORDER BY created_at DESC LIMIT 20'
-        );
-        return rows.map((r) => {
-          const plain = String(r.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-          return {
-            id: Number(r.id),
-            title: String(r.title || ''),
-            category: 'ประกาศเซิร์ฟเวอร์',
-            excerpt: plain.length > 180 ? `${plain.slice(0, 180)}...` : plain,
-            body: plain,
-            createdAt: new Date(r.created_at).toISOString(),
-          };
-        });
-      } catch {
-        return [];
-      }
-    }
-    return this.news;
   }
 
   async getCharacterRankings(

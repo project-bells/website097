@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { useLanguage } from '../lib/i18n';
 import {
   CLASS_GROUPS,
   getPkLabel,
@@ -11,16 +12,8 @@ import {
 
 type RankingTab = 'resets' | 'level' | 'gr' | 'guilds' | 'bc' | 'ds';
 
-const RANKING_TABS: Array<{ id: RankingTab; label: string }> = [
-  { id: 'resets', label: 'รีเซ็ตสูงสุด' },
-  { id: 'level', label: 'เลเวลสูงสุด' },
-  { id: 'gr', label: 'แกรนด์รีเซ็ต' },
-  { id: 'guilds', label: 'อันดับกิลด์' },
-  { id: 'bc', label: 'Blood Castle' },
-  { id: 'ds', label: 'Devil Square' },
-];
-
 export function RankingsView() {
+  const { lang, isThai } = useLanguage();
   const [tab, setTab] = useState<RankingTab>('resets');
   const [classGroup, setClassGroup] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
@@ -30,6 +23,15 @@ export function RankingsView() {
   const [charRows, setCharRows] = useState<RankingCharacterRow[]>([]);
   const [guildRows, setGuildRows] = useState<RankingGuildRow[]>([]);
   const [eventRows, setEventRows] = useState<EventRankingRow[]>([]);
+
+  const rankingTabs: Array<{ id: RankingTab; label: string }> = [
+    { id: 'resets', label: isThai ? 'รีเซ็ตสูงสุด' : 'Top Resets' },
+    { id: 'level', label: isThai ? 'เลเวลสูงสุด' : 'Top Level' },
+    { id: 'gr', label: isThai ? 'แกรนด์รีเซ็ต' : 'Grand Resets' },
+    { id: 'guilds', label: isThai ? 'อันดับกิลด์' : 'Top Guilds' },
+    { id: 'bc', label: 'Blood Castle' },
+    { id: 'ds', label: 'Devil Square' },
+  ];
 
   useEffect(() => {
     let active = true;
@@ -67,17 +69,19 @@ export function RankingsView() {
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
       <div className="space-y-2">
         <h1 className="font-display text-3xl font-bold text-[#F7F2E8]">
-          ทำเนียบอันดับผู้เล่นและกิลด์
+          {isThai ? 'ทำเนียบอันดับผู้เล่นและกิลด์' : 'Player & Guild Rankings'}
         </h1>
         <p className="text-sm text-[#A89F91]">
-          ดึงข้อมูลตรงจากตาราง Character, Guild, GuildMember, RankingBloodCastle และ RankingDevilSquare ในฐานข้อมูล MuOnline97
+          {isThai
+            ? 'ดึงข้อมูลตรงจากตาราง Character, Guild, GuildMember, RankingBloodCastle และ RankingDevilSquare ในฐานข้อมูล MuOnline97'
+            : 'Live data queried directly from Character, Guild, GuildMember, RankingBloodCastle, and RankingDevilSquare in MuOnline97.'}
         </p>
       </div>
 
       {/* Controls Bar: Segmented Tabs + Search */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-1 rounded-lg border border-[#26221D] bg-[#141210] p-1">
-          {RANKING_TABS.map((item) => {
+          {rankingTabs.map((item) => {
             const active = tab === item.id;
             return (
               <button
@@ -102,7 +106,15 @@ export function RankingsView() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={tab === 'guilds' ? 'ค้นหาชื่อกิลด์หรือหัวหน้ากิลด์...' : 'ค้นหาชื่อตัวละคร...'}
+            placeholder={
+              tab === 'guilds'
+                ? isThai
+                  ? 'ค้นหาชื่อกิลด์หรือหัวหน้ากิลด์...'
+                  : 'Search guild or master...'
+                : isThai
+                  ? 'ค้นหาชื่อตัวละคร...'
+                  : 'Search character name...'
+            }
             className="w-full rounded-md border border-[#2C2721] bg-[#141210] py-2 pl-9 pr-3 text-sm text-[#EDE8E0] placeholder:text-[#787065] focus:border-[#C89B3C] focus:outline-none"
           />
         </div>
@@ -111,7 +123,9 @@ export function RankingsView() {
       {/* Class Filter Row (only for character rankings) */}
       {isCharTab && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-[#9C9284] mr-1">กรองตามสายอาชีพ:</span>
+          <span className="text-xs text-[#9C9284] mr-1">
+            {isThai ? 'กรองตามสายอาชีพ:' : 'Filter by class:'}
+          </span>
           {CLASS_GROUPS.map((grp) => {
             const active = classGroup === grp.id;
             return (
@@ -125,7 +139,7 @@ export function RankingsView() {
                     : 'border-[#26221D] bg-[#141210] text-[#A89F91] hover:border-[#3E372E] hover:text-[#EDE8E0]'
                 }`}
               >
-                {grp.label}
+                {isThai ? grp.label : grp.labelEn}
               </button>
             );
           })}
@@ -145,15 +159,15 @@ export function RankingsView() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#24201B] bg-[#181512] text-xs text-[#9C9284]">
-                  <th className="px-5 py-3.5 font-medium">อันดับ</th>
-                  <th className="px-4 py-3.5 font-medium">ชื่อตัวละคร</th>
-                  <th className="px-4 py-3.5 font-medium">อาชีพ</th>
-                  <th className="px-4 py-3.5 font-medium text-right">เลเวล</th>
+                  <th className="px-5 py-3.5 font-medium">{isThai ? 'อันดับ' : 'Rank'}</th>
+                  <th className="px-4 py-3.5 font-medium">{isThai ? 'ชื่อตัวละคร' : 'Character'}</th>
+                  <th className="px-4 py-3.5 font-medium">{isThai ? 'อาชีพ' : 'Class'}</th>
+                  <th className="px-4 py-3.5 font-medium text-right">{isThai ? 'เลเวล' : 'Level'}</th>
                   <th className="px-4 py-3.5 font-medium text-right">Reset</th>
                   <th className="px-4 py-3.5 font-medium text-right">Grand Reset</th>
-                  <th className="px-4 py-3.5 font-medium">แผนที่ปัจจุบัน</th>
-                  <th className="px-4 py-3.5 font-medium">กิลด์</th>
-                  <th className="px-5 py-3.5 font-medium text-right">สถานะ</th>
+                  <th className="px-4 py-3.5 font-medium">{isThai ? 'แผนที่ปัจจุบัน' : 'Location'}</th>
+                  <th className="px-4 py-3.5 font-medium">{isThai ? 'กิลด์' : 'Guild'}</th>
+                  <th className="px-5 py-3.5 font-medium text-right">{isThai ? 'สถานะ' : 'Status'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#201C18]">
@@ -168,7 +182,7 @@ export function RankingsView() {
                 ) : charRows.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-5 py-10 text-center text-[#9C9284]">
-                      ไม่พบตัวละครที่ตรงกับเงื่อนไขการค้นหา
+                      {isThai ? 'ไม่พบตัวละครที่ตรงกับเงื่อนไขการค้นหา' : 'No matching characters found.'}
                     </td>
                   </tr>
                 ) : (
@@ -181,7 +195,7 @@ export function RankingsView() {
                         <div className="font-medium text-[#F5EFE6]">{row.Name}</div>
                         {row.PkLevel !== 3 && (
                           <div className={`text-xs ${row.PkLevel > 3 ? 'text-[#F87171]' : 'text-[#93C5FD]'}`}>
-                            {getPkLabel(row.PkLevel)}
+                            {getPkLabel(row.PkLevel, lang)}
                           </div>
                         )}
                       </td>
@@ -199,7 +213,7 @@ export function RankingsView() {
                       <td className="px-4 py-3.5 text-[#B5ADA0]">{row.GuildName ?? '—'}</td>
                       <td className="px-5 py-3.5 text-right text-xs">
                         <span className={row.IsOnline ? 'text-[#4ADE80]' : 'text-[#7F766A]'}>
-                          {row.IsOnline ? 'ออนไลน์' : 'ออฟไลน์'}
+                          {row.IsOnline ? (isThai ? 'ออนไลน์' : 'Online') : isThai ? 'ออฟไลน์' : 'Offline'}
                         </span>
                       </td>
                     </tr>
@@ -213,12 +227,12 @@ export function RankingsView() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#24201B] bg-[#181512] text-xs text-[#9C9284]">
-                  <th className="px-5 py-3.5 font-medium">อันดับ</th>
-                  <th className="px-4 py-3.5 font-medium">ชื่อกิลด์</th>
-                  <th className="px-4 py-3.5 font-medium">หัวหน้ากิลด์</th>
-                  <th className="px-4 py-3.5 font-medium text-right">สมาชิก</th>
-                  <th className="px-4 py-3.5 font-medium text-right">คะแนนกิลด์</th>
-                  <th className="px-5 py-3.5 font-medium">ประกาศกิลด์</th>
+                  <th className="px-5 py-3.5 font-medium">{isThai ? 'อันดับ' : 'Rank'}</th>
+                  <th className="px-4 py-3.5 font-medium">{isThai ? 'ชื่อกิลด์' : 'Guild Name'}</th>
+                  <th className="px-4 py-3.5 font-medium">{isThai ? 'หัวหน้ากิลด์' : 'Guild Master'}</th>
+                  <th className="px-4 py-3.5 font-medium text-right">{isThai ? 'สมาชิก' : 'Members'}</th>
+                  <th className="px-4 py-3.5 font-medium text-right">{isThai ? 'คะแนนกิลด์' : 'Score'}</th>
+                  <th className="px-5 py-3.5 font-medium">{isThai ? 'ประกาศกิลด์' : 'Guild Notice'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#201C18]">
@@ -233,7 +247,7 @@ export function RankingsView() {
                 ) : guildRows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-5 py-10 text-center text-[#9C9284]">
-                      ไม่พบกิลด์ที่ตรงกับการค้นหา
+                      {isThai ? 'ไม่พบกิลด์ที่ตรงกับการค้นหา' : 'No matching guilds found.'}
                     </td>
                   </tr>
                 ) : (
@@ -245,7 +259,13 @@ export function RankingsView() {
                         <span className="text-[#DDD6CA]">{g.GuildMaster}</span>
                         <span className="mx-2 text-[#524B42]">·</span>
                         <span className={`text-xs ${g.IsMasterOnline ? 'text-[#4ADE80]' : 'text-[#7F766A]'}`}>
-                          {g.IsMasterOnline ? 'ออนไลน์' : 'ออฟไลน์'}
+                          {g.IsMasterOnline
+                            ? isThai
+                              ? 'ออนไลน์'
+                              : 'Online'
+                            : isThai
+                              ? 'ออฟไลน์'
+                              : 'Offline'}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-right font-mono tabular-nums text-[#DDD6CA]">
@@ -268,14 +288,22 @@ export function RankingsView() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#24201B] bg-[#181512] text-xs text-[#9C9284]">
-                  <th className="px-5 py-3.5 font-medium">อันดับ</th>
-                  <th className="px-4 py-3.5 font-medium">ชื่อตัวละคร</th>
-                  <th className="px-4 py-3.5 font-medium">อาชีพ</th>
-                  <th className="px-4 py-3.5 font-medium text-right">เลเวล / Reset</th>
+                  <th className="px-5 py-3.5 font-medium">{isThai ? 'อันดับ' : 'Rank'}</th>
+                  <th className="px-4 py-3.5 font-medium">{isThai ? 'ชื่อตัวละคร' : 'Character'}</th>
+                  <th className="px-4 py-3.5 font-medium">{isThai ? 'อาชีพ' : 'Class'}</th>
                   <th className="px-4 py-3.5 font-medium text-right">
-                    {tab === 'bc' ? 'คะแนน Blood Castle' : 'คะแนน Devil Square'}
+                    {isThai ? 'เลเวล / Reset' : 'Level / Reset'}
                   </th>
-                  <th className="px-5 py-3.5 font-medium text-right">สถานะ</th>
+                  <th className="px-4 py-3.5 font-medium text-right">
+                    {tab === 'bc'
+                      ? isThai
+                        ? 'คะแนน Blood Castle'
+                        : 'Blood Castle Score'
+                      : isThai
+                        ? 'คะแนน Devil Square'
+                        : 'Devil Square Score'}
+                  </th>
+                  <th className="px-5 py-3.5 font-medium text-right">{isThai ? 'สถานะ' : 'Status'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#201C18]">
@@ -290,7 +318,7 @@ export function RankingsView() {
                 ) : eventRows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-5 py-10 text-center text-[#9C9284]">
-                      ยังไม่มีคะแนนบันทึกในกิจกรรมนี้
+                      {isThai ? 'ยังไม่มีคะแนนบันทึกในกิจกรรมนี้' : 'No scores recorded for this event yet.'}
                     </td>
                   </tr>
                 ) : (
@@ -307,7 +335,7 @@ export function RankingsView() {
                       </td>
                       <td className="px-5 py-3.5 text-right text-xs">
                         <span className={row.IsOnline ? 'text-[#4ADE80]' : 'text-[#7F766A]'}>
-                          {row.IsOnline ? 'ออนไลน์' : 'ออฟไลน์'}
+                          {row.IsOnline ? (isThai ? 'ออนไลน์' : 'Online') : isThai ? 'ออฟไลน์' : 'Offline'}
                         </span>
                       </td>
                     </tr>

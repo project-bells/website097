@@ -1,8 +1,9 @@
 import { ExternalLink, Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { useLanguage } from '../lib/i18n';
 import { SERVER_CONFIG_SPECS } from '../shared/muData';
 
-export type PortalPage = 'home' | 'rankings' | 'guide' | 'download' | 'account';
+export type PortalPage = 'home' | 'rankings' | 'guide' | 'download' | 'account' | 'admin';
 
 interface NavbarProps {
   currentPage: PortalPage;
@@ -11,14 +12,24 @@ interface NavbarProps {
 }
 
 export function Navbar({ currentPage, onNavigate, accountId }: NavbarProps) {
+  const { lang, setLang, isThai } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems: Array<{ id: PortalPage; label: string }> = [
-    { id: 'home', label: 'หน้าหลัก' },
-    { id: 'rankings', label: 'อันดับผู้เล่น' },
-    { id: 'guide', label: 'กิจกรรมและคู่มือ' },
-    { id: 'download', label: 'ดาวน์โหลด' },
-    { id: 'account', label: accountId ? `บัญชี: ${accountId}` : 'บัญชีของฉัน' },
+    { id: 'home', label: isThai ? 'หน้าหลัก' : 'Home' },
+    { id: 'rankings', label: isThai ? 'อันดับผู้เล่น' : 'Rankings' },
+    { id: 'guide', label: isThai ? 'กิจกรรมและคู่มือ' : 'Events & Guide' },
+    { id: 'download', label: isThai ? 'ดาวน์โหลด' : 'Download' },
+    {
+      id: 'account',
+      label: accountId
+        ? isThai
+          ? `บัญชี: ${accountId}`
+          : `Account: ${accountId}`
+        : isThai
+          ? 'บัญชีของฉัน'
+          : 'My Account',
+    },
   ];
 
   const handleNav = (page: PortalPage) => {
@@ -29,7 +40,7 @@ export function Navbar({ currentPage, onNavigate, accountId }: NavbarProps) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#24201B] bg-[#0B0A09]/92 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-8 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
         {/* Zone 1: Single-line Brand Wordmark */}
         <button
           type="button"
@@ -40,7 +51,7 @@ export function Navbar({ currentPage, onNavigate, accountId }: NavbarProps) {
         </button>
 
         {/* Zone 2: 5 Single-Line Navigation Links */}
-        <nav aria-label="เมนูหลัก" className="hidden md:flex items-center gap-7">
+        <nav aria-label={isThai ? 'เมนูหลัก' : 'Main Navigation'} className="hidden md:flex items-center gap-7">
           {navItems.map((item) => {
             const active = currentPage === item.id;
             return (
@@ -64,8 +75,35 @@ export function Navbar({ currentPage, onNavigate, accountId }: NavbarProps) {
           })}
         </nav>
 
-        {/* Zone 3: Single Primary Action — PlayOnline */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Zone 3: Language Switcher + Primary Action (PlayOnline) */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div
+            role="group"
+            aria-label={isThai ? 'เลือกภาษา' : 'Language selector'}
+            className="inline-flex items-center rounded-md border border-[#2A2520] bg-[#141210] p-0.5 text-xs font-mono"
+          >
+            <button
+              type="button"
+              onClick={() => setLang('en')}
+              aria-pressed={lang === 'en'}
+              className={`rounded px-2 py-1 font-medium transition-colors ${
+                lang === 'en' ? 'bg-[#2B241B] text-[#E0B85A]' : 'text-[#8E8578] hover:text-[#EDE8E0]'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang('th')}
+              aria-pressed={lang === 'th'}
+              className={`rounded px-2 py-1 font-medium transition-colors ${
+                lang === 'th' ? 'bg-[#2B241B] text-[#E0B85A]' : 'text-[#8E8578] hover:text-[#EDE8E0]'
+              }`}
+            >
+              TH
+            </button>
+          </div>
+
           <a
             href={SERVER_CONFIG_SPECS.playOnlineUrl}
             target="_blank"
@@ -78,7 +116,15 @@ export function Navbar({ currentPage, onNavigate, accountId }: NavbarProps) {
 
           <button
             type="button"
-            aria-label={mobileOpen ? 'ปิดเมนู' : 'เปิดเมนู'}
+            aria-label={
+              mobileOpen
+                ? isThai
+                  ? 'ปิดเมนู'
+                  : 'Close menu'
+                : isThai
+                  ? 'เปิดเมนู'
+                  : 'Open menu'
+            }
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((prev) => !prev)}
             className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#2A2520] text-[#D7CFC2] hover:bg-[#171411] md:hidden"

@@ -1,5 +1,7 @@
 import type {
   AccountProfile,
+  AdminSessionInfo,
+  DownloadItem,
   EventRankingRow,
   NewsItem,
   RankingCharacterRow,
@@ -7,11 +9,15 @@ import type {
   ServerOverview,
 } from '../shared/muData';
 
+import { getActiveLang } from './i18n';
+
 async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const lang = getActiveLang();
   const res = await fetch(url, {
     credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      'X-Lang': lang,
       ...(options?.headers || {}),
     },
     ...options,
@@ -19,7 +25,8 @@ async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || `คำขอล้มเหลว (HTTP ${res.status})`);
+    const fallback = lang === 'th' ? `คำขอล้มเหลว (HTTP ${res.status})` : `Request failed (HTTP ${res.status})`;
+    throw new Error(data.error || fallback);
   }
   return data as T;
 }
@@ -28,6 +35,8 @@ export const api = {
   getOverview: () => requestJson<ServerOverview>('/api/overview'),
 
   getNews: () => requestJson<{ news: NewsItem[] }>('/api/news'),
+
+  getDownloads: () => requestJson<{ downloads: DownloadItem[] }>('/api/downloads'),
 
   getCharacterRankings: (type: 'level' | 'resets' | 'gr', classIds: number[], q: string) => {
     const params = new URLSearchParams({ type });
@@ -111,4 +120,84 @@ export const api = {
       `/api/account/characters/${encodeURIComponent(charName)}/pk-clear`,
       { method: 'POST' }
     ),
+
+  admin: {
+    getMe: () => requestJson<{ authenticated: boolean; admin: AdminSessionInfo | null }>('/api/admin/me'),
+
+    login: (username: string, password: string) =>
+      requestJson<{ ok: true; admin: AdminSessionInfo }>('/api/admin/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      }),
+
+    logout: () =>
+      requestJson<{ ok: true }>('/api/admin/logout', {
+        method: 'POST',
+      }),
+
+    changePassword: (currentPassword: string, newPassword: string) =>
+      requestJson<{ ok: true; message: string }>('/api/admin/password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }),
+
+    getNews: () => requestJson<{ news: NewsItem[] }>('/api/admin/news'),
+
+    createNews: (payload: { title: string; category: string; body: string; published: boolean }) =>
+      requestJson<{ ok: true; item: NewsItem; news: NewsItem[] }>('/api/admin/news', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+
+    updateNews: (id: number, payload: { title: string; category: string; body: string; published: boolean }) =>
+      requestJson<{ ok: true; news: NewsItem[] }>(`/api/admin/news/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }),
+
+    deleteNews: (id: number) =>
+      requestJson<{ ok: true; news: NewsItem[] }>(`/api/admin/news/${id}`, {
+        method: 'DELETE',
+      }),
+
+    getDownloads: () => requestJson<{ downloads: DownloadItem[] }>('/api/admin/downloads'),
+
+    createDownload: (payload: {
+      platform: string;
+      title: string;
+      renderer: string;
+      version: string;
+      size: string;
+      url: string;
+      highlights: string[];
+      published: boolean;
+    }) =>
+      requestJson<{ ok: true; item: DownloadItem; downloads: DownloadItem[] }>('/api/admin/downloads', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+
+    updateDownload: (
+      id: string,
+      payload: {
+        platform: string;
+        title: string;
+        renderer: string;
+        version: string;
+        size: string;
+        url: string;
+        highlights: string[];
+        published: boolean;
+      }
+    ) =>
+      requestJson<{ ok: true; downloads: DownloadItem[] }>(`/api/admin/downloads/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }),
+
+    deleteDownload: (id: string) =>
+      requestJson<{ ok: true; downloads: DownloadItem[] }>(`/api/admin/downloads/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+  },
 };

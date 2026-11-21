@@ -1,18 +1,18 @@
-// Client-only image URLs generated via generate_image (do not import in server.ts)
+// Client-only image URLs (do not import in server.ts)
 export const HERO_LORENCIA_IMAGE = '/src/assets/images/hero_lorencia_citadel_1795147373950.jpg';
 
 export const CLASS_PORTRAITS: Record<number, string> = {
-  16: '/src/assets/images/class_dark_knight_1795147385702.jpg',
-  17: '/src/assets/images/class_dark_knight_1795147385702.jpg',
-  18: '/src/assets/images/class_dark_knight_1795147385702.jpg',
-  0: '/src/assets/images/class_dark_wizard_1795147374607.jpg',
-  1: '/src/assets/images/class_dark_wizard_1795147374607.jpg',
-  2: '/src/assets/images/class_dark_wizard_1795147374607.jpg',
-  32: '/src/assets/images/class_fairy_elf_1795147380688.jpg',
-  33: '/src/assets/images/class_fairy_elf_1795147380688.jpg',
-  34: '/src/assets/images/class_fairy_elf_1795147380688.jpg',
-  48: '/src/assets/images/class_magic_gladiator_1795147375733.jpg',
-  49: '/src/assets/images/class_magic_gladiator_1795147375733.jpg',
+  16: '/assets/aistudio/knight_0cc2a7b3.jpe',
+  17: '/assets/aistudio/knight_0cc2a7b3.jpe',
+  18: '/assets/aistudio/knight_0cc2a7b3.jpe',
+  0: '/assets/aistudio/Wiz_f22e7893.jpe',
+  1: '/assets/aistudio/Wiz_f22e7893.jpe',
+  2: '/assets/aistudio/Wiz_f22e7893.jpe',
+  32: '/assets/aistudio/elf_90906900.jpe',
+  33: '/assets/aistudio/elf_90906900.jpe',
+  34: '/assets/aistudio/elf_90906900.jpe',
+  48: '/assets/aistudio/Magic_a49a9263.jpe',
+  49: '/assets/aistudio/Magic_a49a9263.jpe',
 };
 
 export function getClassPortrait(classId: number): string {

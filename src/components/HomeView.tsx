@@ -2,6 +2,7 @@ import { ArrowRight, ChevronRight, ExternalLink } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { HERO_LORENCIA_IMAGE, getClassPortrait } from '../data/assets';
 import { computeEventCountdowns, type ComputedEventState } from '../lib/eventTimers';
+import { formatPortalDate, translateNewsCategory, useLanguage } from '../lib/i18n';
 import {
   PLAYABLE_BASE_CLASSES,
   SERVER_CONFIG_SPECS,
@@ -18,6 +19,7 @@ interface HomeViewProps {
 }
 
 export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewProps) {
+  const { lang, isThai } = useLanguage();
   const [events, setEvents] = useState<ComputedEventState[]>(() => computeEventCountdowns(new Date()));
   const [expandedNewsId, setExpandedNewsId] = useState<number | null>(null);
   const [heroImgError, setHeroImgError] = useState(false);
@@ -43,7 +45,7 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
             {!heroImgError ? (
               <img
                 src={HERO_LORENCIA_IMAGE}
-                alt="ประตูเมือง Lorencia ของเซิร์ฟเวอร์ MuOrigins"
+                alt={isThai ? 'ประตูเมือง Lorencia ของเซิร์ฟเวอร์ MuOrigins' : 'Lorencia Citadel of MuOrigins'}
                 referrerPolicy="no-referrer"
                 onError={() => setHeroImgError(true)}
                 className="h-full w-full object-cover object-center opacity-70"
@@ -62,11 +64,14 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                 MuOrigins · MU Online 0.97k Native Linux
               </p>
               <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-[#F7F2E8] sm:text-5xl lg:text-[3.5rem] text-balance">
-                ตำนานแห่ง Lorencia บนเซิร์ฟเวอร์ MuOrigins ที่เสถียรและโปร่งใส
+                {isThai
+                  ? 'ตำนานแห่ง Lorencia บนเซิร์ฟเวอร์ MuOrigins ที่เสถียรและโปร่งใส'
+                  : 'The Legend of Lorencia on a Fair, High-Stability MuOrigins Realm'}
               </h1>
               <p className="text-base leading-relaxed text-[#C9C1B5] sm:text-lg max-w-xl">
-                พอร์ทัลผู้เล่นที่เชื่อมต่อโดยตรงกับฐานข้อมูล MuOnline97 ของ Mu-Linux
-                เข้าเล่นออนไลน์ได้ทันที สมัครบัญชี จัดการตัวละคร อัพสเตตัส รีเซ็ต และติดตามรอบกิจกรรมแบบเรียลไทม์
+                {isThai
+                  ? 'พอร์ทัลผู้เล่นที่เชื่อมต่อโดยตรงกับฐานข้อมูล MuOnline97 ของ Mu-Linux เข้าเล่นออนไลน์ได้ทันที สมัครบัญชี จัดการตัวละคร อัพสเตตัส รีเซ็ต และติดตามรอบกิจกรรมแบบเรียลไทม์'
+                  : 'Player portal directly wired to the Mu-Linux MuOnline97 database. Jump into PlayOnline instantly, register accounts, manage characters, allocate stats, reset, and track live event schedules.'}
               </p>
 
               <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -84,7 +89,15 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                   onClick={() => onNavigate('account')}
                   className="inline-flex items-center gap-2 rounded-md border border-[#3B342B] bg-[#141210]/85 px-5 py-3 text-sm font-medium text-[#EDE8E0] transition-colors hover:border-[#6B5D4A] hover:bg-[#1C1814] whitespace-nowrap"
                 >
-                  <span>{accountId ? 'เปิดแดชบอร์ดตัวละคร' : 'สมัครสมาชิก / เข้าสู่ระบบ'}</span>
+                  <span>
+                    {accountId
+                      ? isThai
+                        ? 'เปิดแดชบอร์ดตัวละคร'
+                        : 'Open Character Panel'
+                      : isThai
+                        ? 'สมัครสมาชิก / เข้าสู่ระบบ'
+                        : 'Register / Sign In'}
+                  </span>
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -96,35 +109,47 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
         <div className="border-t border-[#24201B] bg-[#12100E]">
           <div className="mx-auto grid max-w-7xl grid-cols-2 divide-y divide-[#24201B] sm:grid-cols-4 sm:divide-x sm:divide-y-0 px-4 sm:px-6 lg:px-8">
             <div className="py-5 sm:pr-6">
-              <div className="text-xs text-[#9C9284]">ผู้เล่นออนไลน์ขณะนี้</div>
+              <div className="text-xs text-[#9C9284]">
+                {isThai ? 'ผู้เล่นออนไลน์ขณะนี้' : 'Players Online'}
+              </div>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-semibold text-[#F5E7C6] tabular-nums">
                   {loading ? '—' : (overview?.stats.onlinePlayers ?? 0).toLocaleString()}
                 </span>
                 <span className={`text-xs ${overview?.gameServer.reachable ? 'text-[#4ADE80]' : 'text-[#9C9284]'}`}>
                   {overview?.gameServer.reachable
-                    ? 'GameServer พร้อมใช้งาน'
+                    ? isThai
+                      ? 'GameServer พร้อมใช้งาน'
+                      : 'GameServer Online'
                     : isLiveDb
-                      ? 'GameServer ออฟไลน์'
-                      : 'รอเชื่อมต่อเซิร์ฟเวอร์'}
+                      ? isThai
+                        ? 'GameServer ออฟไลน์'
+                        : 'GameServer Offline'
+                      : isThai
+                        ? 'รอเชื่อมต่อเซิร์ฟเวอร์'
+                        : 'Awaiting Server Link'}
                 </span>
               </div>
             </div>
 
             <div className="py-5 pl-4 sm:px-6">
-              <div className="text-xs text-[#9C9284]">ตัวละครและกิลด์ในระบบ</div>
+              <div className="text-xs text-[#9C9284]">
+                {isThai ? 'ตัวละครและกิลด์ในระบบ' : 'Characters & Guilds'}
+              </div>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-semibold text-[#F5E7C6] tabular-nums">
                   {loading ? '—' : (overview?.stats.totalCharacters ?? 0).toLocaleString()}
                 </span>
                 <span className="text-xs text-[#9C9284] font-mono tabular-nums">
-                  / {(overview?.stats.totalGuilds ?? 0).toLocaleString()} กิลด์
+                  / {(overview?.stats.totalGuilds ?? 0).toLocaleString()} {isThai ? 'กิลด์' : 'Guilds'}
                 </span>
               </div>
             </div>
 
             <div className="py-5 sm:px-6">
-              <div className="text-xs text-[#9C9284]">เรตและขีดจำกัด (Common.dat)</div>
+              <div className="text-xs text-[#9C9284]">
+                {isThai ? 'เรตและขีดจำกัด (Common.dat)' : 'Realm Caps (Common.dat)'}
+              </div>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-semibold text-[#F5E7C6] tabular-nums">
                   Lv.{SERVER_CONFIG_SPECS.maxLevel}
@@ -136,7 +161,9 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
             </div>
 
             <div className="py-5 pl-4 sm:pl-6">
-              <div className="text-xs text-[#9C9284]">พอร์ตเชื่อมต่อเกม</div>
+              <div className="text-xs text-[#9C9284]">
+                {isThai ? 'พอร์ตเชื่อมต่อเกม' : 'Server Ports'}
+              </div>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-semibold text-[#E0B85A] tabular-nums">
                   {overview?.connectServer.port ?? 44405}
@@ -160,10 +187,12 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
               <div className="flex items-center justify-between border-b border-[#24201B] px-6 py-4">
                 <div>
                   <h2 className="font-display text-lg font-semibold text-[#F5EFE6]">
-                    ทำเนียบ 5 อันดับผู้เล่นสูงสุด
+                    {isThai ? 'ทำเนียบ 5 อันดับผู้เล่นสูงสุด' : 'Top 5 Realm Champions'}
                   </h2>
                   <p className="text-xs text-[#9C9284]">
-                    จัดอันดับจากตาราง Character · เรียงตามจำนวน Reset และ Grand Reset
+                    {isThai
+                      ? 'จัดอันดับจากตาราง Character · เรียงตามจำนวน Reset และ Grand Reset'
+                      : 'Live leaderboard from Character table · Ordered by Resets & Grand Resets'}
                   </p>
                 </div>
                 <button
@@ -171,7 +200,7 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                   onClick={() => onNavigate('rankings')}
                   className="inline-flex items-center gap-1 text-sm font-medium text-[#C89B3C] hover:text-[#E0B85A] whitespace-nowrap"
                 >
-                  <span>ดูทั้งหมด</span>
+                  <span>{isThai ? 'ดูทั้งหมด' : 'View All'}</span>
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
@@ -180,11 +209,11 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-[#24201B] text-xs text-[#9C9284]">
-                      <th className="px-6 py-3 font-medium">อันดับ</th>
-                      <th className="px-4 py-3 font-medium">ตัวละคร</th>
-                      <th className="px-4 py-3 font-medium text-right">เลเวล</th>
+                      <th className="px-6 py-3 font-medium">{isThai ? 'อันดับ' : 'Rank'}</th>
+                      <th className="px-4 py-3 font-medium">{isThai ? 'ตัวละคร' : 'Character'}</th>
+                      <th className="px-4 py-3 font-medium text-right">{isThai ? 'เลเวล' : 'Level'}</th>
                       <th className="px-4 py-3 font-medium text-right">Reset</th>
-                      <th className="px-6 py-3 font-medium text-right">สถานะ</th>
+                      <th className="px-6 py-3 font-medium text-right">{isThai ? 'สถานะ' : 'Status'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#201C18]">
@@ -200,10 +229,14 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                       <tr>
                         <td colSpan={5} className="px-6 py-10 text-center space-y-2">
                           <div className="text-sm text-[#B8AFA2]">
-                            ยังไม่มีข้อมูลตัวละครในฐานข้อมูล MuOnline97
+                            {isThai
+                              ? 'ยังไม่มีข้อมูลตัวละครในฐานข้อมูล MuOnline97'
+                              : 'No characters recorded in MuOnline97 yet'}
                           </div>
                           <div className="text-xs text-[#8E8578]">
-                            สมัครสมาชิกและสร้างตัวละคร หรือเชื่อมต่อฐานข้อมูล MySQL เพื่อแสดงอันดับผู้เล่นจริง
+                            {isThai
+                              ? 'สมัครสมาชิกและสร้างตัวละคร หรือเชื่อมต่อฐานข้อมูล MySQL เพื่อแสดงอันดับผู้เล่นจริง'
+                              : 'Register an account and create a hero, or connect MySQL to display live rankings.'}
                           </div>
                         </td>
                       </tr>
@@ -217,7 +250,7 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                             <div className="font-medium text-[#F2ECE2]">{p.Name}</div>
                             <div className="text-xs text-[#9C9284]">
                               {p.ClassName}
-                              {p.GuildName ? ` · กิลด์ ${p.GuildName}` : ''}
+                              {p.GuildName ? ` · ${isThai ? 'กิลด์' : 'Guild'} ${p.GuildName}` : ''}
                             </div>
                           </td>
                           <td className="px-4 py-3.5 text-right font-mono tabular-nums text-[#DDD6CA]">
@@ -229,7 +262,7 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                           </td>
                           <td className="px-6 py-3.5 text-right text-xs">
                             <span className={p.IsOnline ? 'text-[#4ADE80]' : 'text-[#7F766A]'}>
-                              {p.IsOnline ? 'ออนไลน์' : 'ออฟไลน์'}
+                              {p.IsOnline ? (isThai ? 'ออนไลน์' : 'Online') : isThai ? 'ออฟไลน์' : 'Offline'}
                             </span>
                           </td>
                         </tr>
@@ -244,31 +277,35 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
             <div className="space-y-4">
               <div className="flex items-baseline justify-between">
                 <h2 className="font-display text-xl font-semibold text-[#F5EFE6]">
-                  ประกาศและอัปเดตเซิร์ฟเวอร์
+                  {isThai ? 'ประกาศและอัปเดตเซิร์ฟเวอร์' : 'Server News & Announcements'}
                 </h2>
-                <span className="text-xs text-[#9C9284]">ข้อมูลจากตาราง web_news</span>
+                <span className="text-xs text-[#9C9284]">
+                  {isThai ? 'ข้อมูลจากตาราง web_news' : 'Synced from web_news'}
+                </span>
               </div>
 
               <div className="divide-y divide-[#24201B] rounded-lg border border-[#26221D] bg-[#141210]">
                 {newsList.length === 0 ? (
                   <div className="p-8 text-center space-y-1.5">
-                    <p className="text-sm text-[#B8AFA2]">ยังไม่มีประกาศข่าวสารในตาราง web_news</p>
+                    <p className="text-sm text-[#B8AFA2]">
+                      {isThai ? 'ยังไม่มีประกาศข่าวสารในตาราง web_news' : 'No published announcements yet'}
+                    </p>
                     <p className="text-xs text-[#8E8578]">
-                      เมื่อเชื่อมต่อฐานข้อมูล MySQL ของ MuOrigins และเผยแพร่ข่าวจากแอดมิน ประกาศจะปรากฏที่นี่อัตโนมัติ
+                      {isThai
+                        ? 'เมื่อผู้ดูแลระบบเผยแพร่ข่าวสารจากหน้าหลังบ้าน ประกาศจะปรากฏที่นี่อัตโนมัติ'
+                        : 'Announcements published from the Admin backoffice will appear here automatically.'}
                     </p>
                   </div>
                 ) : (
                   newsList.map((item) => {
                     const isOpen = expandedNewsId === item.id;
-                    const dateLabel = new Date(item.createdAt).toLocaleDateString('th-TH', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    });
+                    const dateLabel = formatPortalDate(item.createdAt, lang);
                     return (
                       <article key={item.id} className="p-6">
                         <div className="flex items-center gap-2 text-xs text-[#9C9284]">
-                          <span className="text-[#C89B3C]">{item.category}</span>
+                          <span className="text-[#C89B3C]">
+                            {translateNewsCategory(item.category, lang)}
+                          </span>
                           <span aria-hidden="true">·</span>
                           <time className="font-mono tabular-nums">{dateLabel}</time>
                         </div>
@@ -283,7 +320,13 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                           onClick={() => setExpandedNewsId(isOpen ? null : item.id)}
                           className="mt-3 text-xs font-medium text-[#C89B3C] hover:text-[#E0B85A]"
                         >
-                          {isOpen ? 'ย่อรายละเอียด' : 'อ่านประกาศฉบับเต็ม'}
+                          {isOpen
+                            ? isThai
+                              ? 'ย่อรายละเอียด'
+                              : 'Show less'
+                            : isThai
+                              ? 'อ่านประกาศฉบับเต็ม'
+                              : 'Read full announcement'}
                         </button>
                       </article>
                     );
@@ -299,10 +342,12 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
               <div className="flex items-center justify-between border-b border-[#24201B] px-6 py-4">
                 <div>
                   <h2 className="font-display text-lg font-semibold text-[#F5EFE6]">
-                    เวลากิจกรรมรอบถัดไป
+                    {isThai ? 'เวลากิจกรรมรอบถัดไป' : 'Upcoming Event Timers'}
                   </h2>
                   <p className="text-xs text-[#9C9284]">
-                    ซิงก์ตาม BloodCastle.dat, DevilSquare.dat และ Invasions.toml
+                    {isThai
+                      ? 'ซิงก์ตาม BloodCastle.dat, DevilSquare.dat และ Invasions.toml'
+                      : 'Synced with BloodCastle.dat, DevilSquare.dat & Invasions.toml'}
                   </p>
                 </div>
                 <button
@@ -310,7 +355,7 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                   onClick={() => onNavigate('guide')}
                   className="text-sm font-medium text-[#C89B3C] hover:text-[#E0B85A] whitespace-nowrap"
                 >
-                  ตารางทั้งหมด
+                  {isThai ? 'ตารางทั้งหมด' : 'Full Schedule'}
                 </button>
               </div>
 
@@ -320,7 +365,8 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                     <div className="min-w-0">
                       <div className="font-medium text-[#F2ECE2] truncate">{ev.event.name}</div>
                       <div className="mt-0.5 text-xs text-[#9C9284] truncate">
-                        {ev.event.maps} · รอบ {ev.nextTimeLabel} น.
+                        {isThai ? ev.event.maps : ev.event.mapsEn} ·{' '}
+                        {isThai ? `รอบ ${ev.nextTimeLabel} น.` : `Next ${ev.nextTimeLabel}`}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -337,10 +383,16 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                       </div>
                       <div className="text-xs text-[#9C9284]">
                         {ev.status === 'active'
-                          ? 'กำลังเปิดอยู่'
+                          ? isThai
+                            ? 'กำลังเปิดอยู่'
+                            : 'Active Now'
                           : ev.status === 'warning'
-                            ? 'เปิดลงทะเบียนแล้ว'
-                            : 'อีกสักครู่'}
+                            ? isThai
+                              ? 'เปิดลงทะเบียนแล้ว'
+                              : 'Opening Soon'
+                            : isThai
+                              ? 'อีกสักครู่'
+                              : 'Upcoming'}
                       </div>
                     </div>
                   </div>
@@ -351,27 +403,41 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
             {/* Key Server Mechanics Summary */}
             <div className="rounded-lg border border-[#26221D] bg-[#141210] p-6 space-y-4">
               <h2 className="font-display text-lg font-semibold text-[#F5EFE6]">
-                โครงสร้างการเล่น MuOrigins 0.97k
+                {isThai ? 'โครงสร้างการเล่น MuOrigins 0.97k' : 'MuOrigins 0.97k Realm Overview'}
               </h2>
               <dl className="divide-y divide-[#221E1A] text-sm">
                 <div className="flex items-center justify-between py-2.5">
-                  <dt className="text-[#A89F91]">เงื่อนไขการรีเซ็ต (/reset)</dt>
-                  <dd className="font-mono text-[#F2ECE2] tabular-nums">Lv. 400 · เก็บสเตตัสเดิม</dd>
+                  <dt className="text-[#A89F91]">
+                    {isThai ? 'เงื่อนไขการรีเซ็ต (/reset)' : 'Reset Rule (/reset)'}
+                  </dt>
+                  <dd className="font-mono text-[#F2ECE2] tabular-nums">
+                    {isThai ? 'Lv. 400 · เก็บสเตตัสเดิม' : 'Lv. 400 · Keep Stats'}
+                  </dd>
                 </div>
                 <div className="flex items-center justify-between py-2.5">
-                  <dt className="text-[#A89F91]">โบนัสปาร์ตี้ 5 คน</dt>
+                  <dt className="text-[#A89F91]">
+                    {isThai ? 'โบนัสปาร์ตี้ 5 คน' : '5-Member Party Bonus'}
+                  </dt>
                   <dd className="font-mono text-[#E0B85A] tabular-nums">EXP 200%</dd>
                 </div>
                 <div className="flex items-center justify-between py-2.5">
-                  <dt className="text-[#A89F91]">ออปชันสูงสุด (Jewel of Life)</dt>
-                  <dd className="font-mono text-[#F2ECE2] tabular-nums">+16 (4 ขั้น)</dd>
+                  <dt className="text-[#A89F91]">
+                    {isThai ? 'ออปชันสูงสุด (Jewel of Life)' : 'Max Item Option (JoL)'}
+                  </dt>
+                  <dd className="font-mono text-[#F2ECE2] tabular-nums">
+                    {isThai ? '+16 (4 ขั้น)' : '+16 (4 Tiers)'}
+                  </dd>
                 </div>
                 <div className="flex items-center justify-between py-2.5">
                   <dt className="text-[#A89F91]">Devil Square Ticket Mix</dt>
-                  <dd className="font-mono text-[#F2ECE2] tabular-nums">สำเร็จ 80%</dd>
+                  <dd className="font-mono text-[#F2ECE2] tabular-nums">
+                    {isThai ? 'สำเร็จ 80%' : '80% Success'}
+                  </dd>
                 </div>
                 <div className="flex items-center justify-between py-2.5">
-                  <dt className="text-[#A89F91]">การป้องกันโปรฝั่งเซิร์ฟเวอร์</dt>
+                  <dt className="text-[#A89F91]">
+                    {isThai ? 'การป้องกันโปรฝั่งเซิร์ฟเวอร์' : 'Server-Side Anti-Hack'}
+                  </dt>
                   <dd className="text-right text-[#C9C1B5]">MoveCheck · AttackCheck · AutoPotion</dd>
                 </div>
               </dl>
@@ -380,7 +446,11 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                 onClick={() => onNavigate('guide')}
                 className="inline-flex items-center gap-1 text-sm font-medium text-[#C89B3C] hover:text-[#E0B85A]"
               >
-                <span>ดูคำสั่ง /command และตารางวาร์ป Move.txt ทั้งหมด</span>
+                <span>
+                  {isThai
+                    ? 'ดูคำสั่ง /command และตารางวาร์ป Move.txt ทั้งหมด'
+                    : 'View all /commands & Move.txt warp gates'}
+                </span>
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
@@ -393,10 +463,12 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold text-[#F5EFE6]">
-              อาชีพคลาสสิกทั้ง 4 สายใน MuOrigins
+              {isThai ? 'อาชีพคลาสสิกทั้ง 4 สายใน MuOrigins' : '4 Classic MuOrigins 0.97k Classes'}
             </h2>
             <p className="mt-1 text-sm text-[#A89F91]">
-              ค่าพลังเริ่มต้นและจุดเกิดอ้างอิงโดยตรงจากตาราง DefaultClassType ในฐานข้อมูล MuOnline97
+              {isThai
+                ? 'ค่าพลังเริ่มต้นและจุดเกิดอ้างอิงโดยตรงจากตาราง DefaultClassType ในฐานข้อมูล MuOnline97'
+                : 'Base attributes and starting maps sourced directly from DefaultClassType in MuOnline97.'}
             </p>
           </div>
           <button
@@ -404,7 +476,7 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
             onClick={() => onNavigate('account')}
             className="text-sm font-medium text-[#C89B3C] hover:text-[#E0B85A] whitespace-nowrap"
           >
-            สร้างตัวละครในบัญชีของคุณ
+            {isThai ? 'สร้างตัวละครในบัญชีของคุณ' : 'Create a Character'}
           </button>
         </div>
 
@@ -417,22 +489,26 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
               <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#1B1713]">
                 <img
                   src={getClassPortrait(cls.classId)}
-                  alt={`${cls.name} (${cls.thaiName})`}
+                  alt={isThai ? `${cls.name} (${cls.thaiName})` : cls.name}
                   referrerPolicy="no-referrer"
                   className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#141210] via-[#141210]/20 to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#141210] via-[#141210]/25 to-transparent" />
                 <div className="absolute inset-x-4 bottom-3">
-                  <div className="text-xs text-[#C89B3C]">{cls.role}</div>
+                  <div className="text-xs text-[#C89B3C]">{isThai ? cls.role : cls.roleEn}</div>
                   <h3 className="font-display text-xl font-bold text-[#F7F2E8]">{cls.name}</h3>
                   <div className="text-xs text-[#C4BCB0]">
-                    {cls.thaiName} · คลาส 2 {cls.evolution}
+                    {isThai
+                      ? `${cls.thaiName} · คลาส 2 ${cls.evolution}`
+                      : `2nd Class: ${cls.evolution}`}
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-1 flex-col justify-between p-5 space-y-4">
-                <p className="text-sm leading-relaxed text-[#B8AFA2]">{cls.description}</p>
+                <p className="text-sm leading-relaxed text-[#B8AFA2]">
+                  {isThai ? cls.description : cls.descriptionEn}
+                </p>
 
                 <div className="space-y-2 border-t border-[#24201B] pt-3 text-xs">
                   <div className="grid grid-cols-4 gap-2 font-mono tabular-nums text-center">
@@ -454,7 +530,9 @@ export function HomeView({ overview, loading, onNavigate, accountId }: HomeViewP
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-1 text-[#9C9284]">
-                    <span>เมืองเกิด {cls.startMapName}</span>
+                    <span>
+                      {isThai ? `เมืองเกิด ${cls.startMapName}` : `Starts in ${cls.startMapName}`}
+                    </span>
                     <span className="font-mono tabular-nums">
                       HP {cls.life} / MP {cls.mana}
                     </span>
